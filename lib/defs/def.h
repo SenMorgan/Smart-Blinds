@@ -9,6 +9,8 @@
 #ifndef __DEF_H_
 #define __DEF_H_
 
+const char* mqtt_server = "192.168.1.100";
+
 // delay in seconds between reporting states to MQTT server
 #define PUBLISH_STEP  500
 // maximum steps value (calculated manually)
