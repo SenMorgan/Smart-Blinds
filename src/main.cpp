@@ -8,6 +8,7 @@
  ***************************************************************/
 
 #include "def.h"
+//#include "mqtt.h"
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
@@ -15,6 +16,7 @@
 #include <AccelStepper.h>
 #include <PubSubClient.h>
 #include <EEPROM.h>
+
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 WiFiClient espClient;
@@ -24,7 +26,7 @@ unsigned long reconnectTimer = 0, publishTimer = 0;
 byte currentPos = 0, targetPos = 0;
 boolean holdPos = 0, stepperEnabled = 0;
 
-void publish_data()
+void publish_data(void)
 {
   static char buff[20];
 
@@ -45,11 +47,11 @@ void publish_data()
   }
 }
 
-void callback(String topic, byte *payload, unsigned int length)
+void callback(String topic, byte *payload, uint16_t length)
 {
   String payloadString = "";
   //Serial.println("Topic: [" + topic + "]");
-  for (int i = 0; i < length; i++)
+  for (uint16_t i = 0; i < length; i++)
     payloadString += (char)payload[i];
   //Serial.println("Payload: [" + payloadString + "]\n");
 
@@ -69,13 +71,14 @@ void callback(String topic, byte *payload, unsigned int length)
   }
 }
 
-void reconnect()
+void reconnect(void)
 {
   if (client.connect("Cover", "login", "password", "/Cover/availability", 1, true, "offline"))
     client.subscribe("/Cover/#");
   else
     reconnectTimer = millis() + 5000;
 }
+
 
 void stepper_prog()
 {
@@ -201,8 +204,7 @@ void loop()
 
   button_read();
   stepper_prog();
-  if (publishTimer == 0)
-    Serial.println("Publish timer = 0!");
+  
   publish_data();
   yield();
 }
