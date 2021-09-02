@@ -12,22 +12,22 @@
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <AccelStepper.h>
+#include <PubSubClient.h>
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
-
 void setup()
 {
-  // put your setup code here, to run once:
+
   Serial.begin(115200);
 
-  //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
+  // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  //fetches ssid and pass from eeprom and tries to connect
-  //if it does not connect it starts an access point with the "Smart Blinds" name
-  //and goes into a blocking loop awaiting configuration
+  // fetches ssid and pass from eeprom and tries to connect
+  // if it does not connect it starts an access point with the "Smart Blinds" name
+  // and goes into a blocking loop awaiting configuration
   wifiManager.autoConnect("Smart Blinds");
+  // continue if conected
 
   stepper.setMaxSpeed(4000.0);
   stepper.setAcceleration(2000.0); //Make the acc quick
