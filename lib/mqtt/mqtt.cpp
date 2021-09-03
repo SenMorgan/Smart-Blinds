@@ -17,7 +17,7 @@ PubSubClient mqttClient(espClient);
 
 bool reconnect(void)
 {
-    if (mqttClient.connect("Cover", "login", "password", "/Cover/availability", 1, true, "offline"))
+    if (mqttClient.connect("Cover", MQTT_LOGIN, MQTT_PASSWORD, "/Cover/availability", 1, true, "offline"))
     {
         mqttClient.subscribe("/Cover/#");
         return 1;

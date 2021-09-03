@@ -12,6 +12,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include "secrets.h"
 
 extern String msgTopic;
 extern String msgString;

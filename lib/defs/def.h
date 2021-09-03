@@ -6,8 +6,8 @@
  *  
  ***************************************************************/
 
-#ifndef __DEF_H_
-#define __DEF_H_
+#ifndef DEF_H
+#define DEF_H
 
 #define MQTT_SERVER     "192.168.1.100"
 #define MQTT_PORT       1883
@@ -17,7 +17,7 @@
 // delay in ms between reporting states to MQTT server in moving mode
 #define PUBLISH_STEP_LONG  500
 // maximum steps value (calculated manually)
-#define MAX_POSITION 30000
+#define MAX_POSITION 104000
 
 // stepper motor driver pins
 #define PIN_STEP D1
@@ -28,4 +28,4 @@
 #define Button_1_PIN D6
 #define Button_2_PIN D7
 
-#endif /* __DEF_H_ */
+#endif /* DEF_H */
