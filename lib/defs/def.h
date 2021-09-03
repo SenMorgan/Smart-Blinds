@@ -9,10 +9,13 @@
 #ifndef __DEF_H_
 #define __DEF_H_
 
-const char* mqtt_server = "192.168.1.100";
+#define MQTT_SERVER     "192.168.1.100"
+#define MQTT_PORT       1883
 
-// delay in seconds between reporting states to MQTT server
-#define PUBLISH_STEP  500
+// delay in ms between reporting states to MQTT server in idle mode
+#define PUBLISH_STEP_SHORT  10000
+// delay in ms between reporting states to MQTT server in moving mode
+#define PUBLISH_STEP_LONG  500
 // maximum steps value (calculated manually)
 #define MAX_POSITION 30000
 

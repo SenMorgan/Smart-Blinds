@@ -8,77 +8,19 @@
  ***************************************************************/
 
 #include "def.h"
-//#include "mqtt.h"
+#include "mqtt.h"
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 #include <AccelStepper.h>
-#include <PubSubClient.h>
 #include <EEPROM.h>
 
-
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
-WiFiClient espClient;
-PubSubClient client(espClient);
 
-unsigned long reconnectTimer = 0, publishTimer = 0;
 byte currentPos = 0, targetPos = 0;
 boolean holdPos = 0, stepperEnabled = 0;
-
-void publish_data(void)
-{
-  static char buff[20];
-
-  if (millis() > publishTimer)
-  {
-    if (!stepperEnabled)
-      publishTimer = millis() + PUBLISH_STEP;
-    else
-      publishTimer = millis() + 1000;
-
-    digitalWrite(BuiltinLED, LOW);
-    sprintf(buff, "%d", currentPos);
-    client.publish("/Cover/position", buff, true);
-    client.publish("/Cover/availability", "online");
-    sprintf(buff, "%ld sec", millis() / 1000);
-    client.publish("/Cover/uptime", buff);
-    digitalWrite(BuiltinLED, HIGH);
-  }
-}
-
-void callback(String topic, byte *payload, uint16_t length)
-{
-  String payloadString = "";
-  //Serial.println("Topic: [" + topic + "]");
-  for (uint16_t i = 0; i < length; i++)
-    payloadString += (char)payload[i];
-  //Serial.println("Payload: [" + payloadString + "]\n");
-
-  if (topic == "/Cover/set")
-  {
-    if (payloadString == "OPEN")
-      targetPos = 100;
-    else if (payloadString == "CLOSE")
-      targetPos = 0;
-    else if (payloadString == "STOP")
-      holdPos = true;
-  }
-  else if (topic == "/Cover/set_position")
-  {
-    targetPos = constrain(payloadString.toInt(), 0, 100);
-    //Serial.print("Mqtt set position: "); Serial.println(targetPos);
-  }
-}
-
-void reconnect(void)
-{
-  if (client.connect("Cover", "login", "password", "/Cover/availability", 1, true, "offline"))
-    client.subscribe("/Cover/#");
-  else
-    reconnectTimer = millis() + 5000;
-}
-
+uint32_t publishTimer = 0;
 
 void stepper_prog()
 {
@@ -183,9 +125,7 @@ void setup()
   wifiManager.autoConnect("Smart Blinds");
   // continue if conected
 
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-  reconnect();
+  init_MQTT(MQTT_SERVER, MQTT_PORT);
 
   stepper.setEnablePin(PIN_ENABLE);
   stepper.setPinsInverted(false, false, false, false, true);
@@ -193,18 +133,53 @@ void setup()
   stepper.setAcceleration(1300.0);
 }
 
+//void mqtt_parse_message(bool *msgFlag, String *msgTopic, String *msgString)
+void mqtt_parse_message()
+{
+  if (msgFlag)
+  {
+    msgFlag = 0;
+
+    if (msgTopic == "/Cover/set")
+    {
+      if (msgString == "OPEN")
+        targetPos = 100;
+      else if (msgString == "CLOSE")
+        targetPos = 0;
+      else if (msgString == "STOP")
+        holdPos = 1;
+    }
+    else if (msgTopic == "/Cover/set_position")
+    {
+      targetPos = constrain(msgString.toInt(), 0, 100);
+      //Serial.print("Mqtt set position: "); Serial.println(targetPos);
+    }
+  }
+}
+
 void loop()
 {
-  if (millis() > reconnectTimer && !stepperEnabled)
-  {
-    if (!client.connected())
-      reconnect();
-  }
-  client.loop();
+  uint32_t timeNow = millis();
 
+  if (timeNow > publishTimer)
+  {
+    if (mqttServerConneted())
+    {
+      digitalWrite(BuiltinLED, LOW);
+      publish_data(millis(), currentPos);
+      digitalWrite(BuiltinLED, HIGH);
+      publishTimer = timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
+    }
+    else
+    {
+      reconnect();
+      publishTimer = PUBLISH_STEP_LONG;
+    }
+  }
+  mqttLoop();
+  //mqtt_parse_message(&msgFlag, &msgTopic, &msgString);
+  mqtt_parse_message();
   button_read();
   stepper_prog();
-  
-  publish_data();
   yield();
 }
