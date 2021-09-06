@@ -17,6 +17,8 @@
 #include <WiFiManager.h>
 #include <AccelStepper.h>
 #include <EEPROM.h>
+#include <ArduinoOTA.h>
+#include <ESP8266mDNS.h>
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
@@ -24,7 +26,7 @@ byte currentPos = 0, targetPos = 0;
 boolean holdPos = 0, stepperEnabled = 0;
 uint32_t publishTimer = 0;
 
-void stepper_prog()
+void stepper_prog(void)
 {
   static byte oldTargetPos;
   static unsigned long antiDriftTimer;
@@ -60,7 +62,7 @@ void stepper_prog()
   stepper.run();
 }
 
-void button_read()
+void button_read(void)
 {
 #define readButtonStep 50
 #define buttonDirStep 1000
@@ -107,36 +109,7 @@ void button_read()
   }
 }
 
-void setup()
-{
-  pinMode(BuiltinLED, OUTPUT);
-
-  EEPROM.begin(4);
-  EEPROM.get(0, currentPos);
-  targetPos = currentPos;
-  uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
-  stepper.setCurrentPosition(targetPosInSteps);
-
-  Serial.begin(115200);
-
-  // Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-  // fetches ssid and pass from eeprom and tries to connect
-  // if it does not connect it starts an access point with the "Smart Blinds" name
-  // and goes into a blocking loop awaiting configuration
-  wifiManager.autoConnect("Smart Blinds");
-  // continue if conected
-
-  init_MQTT(MQTT_SERVER, MQTT_PORT);
-
-  stepper.setEnablePin(PIN_ENABLE);
-  stepper.setPinsInverted(false, false, false, false, true);
-  stepper.setMaxSpeed(2000.0);
-  stepper.setAcceleration(1300.0);
-}
-
-//void mqtt_parse_message(bool *msgFlag, String *msgTopic, String *msgString)
-void mqtt_parse_message()
+void mqtt_parse_message(void)
 {
   if (msgFlag)
   {
@@ -159,8 +132,44 @@ void mqtt_parse_message()
   }
 }
 
-void loop()
+void setup(void)
 {
+  pinMode(BuiltinLED, OUTPUT);
+
+  EEPROM.begin(4);
+  EEPROM.get(0, currentPos);
+  targetPos = currentPos;
+  uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
+  stepper.setCurrentPosition(targetPosInSteps);
+
+  Serial.begin(115200);
+
+  // Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  // fetches ssid and pass from eeprom and tries to connect
+  // if it does not connect it starts an access point with the "Smart Blinds" name
+  // and goes into a blocking loop awaiting configuration
+  wifiManager.autoConnect("Smart Blinds");
+  // continue if conected
+
+  init_MQTT(MQTT_SERVER, MQTT_PORT);
+  ArduinoOTA.setHostname("Smart_Blinds");
+  ArduinoOTA.begin();
+  ArduinoOTA.setPassword(OTA_PASS);
+  ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
+                        { digitalWrite(BuiltinLED, !digitalRead(BuiltinLED)); });
+  ArduinoOTA.onEnd([]()
+                   { digitalWrite(BuiltinLED, 1); });
+
+  stepper.setEnablePin(PIN_ENABLE);
+  stepper.setPinsInverted(false, false, false, false, true);
+  stepper.setMaxSpeed(2000.0);
+  stepper.setAcceleration(1300.0);
+}
+
+void loop(void)
+{
+  ArduinoOTA.handle();
   // save actual time
   uint32_t timeNow = millis();
 
@@ -170,9 +179,9 @@ void loop()
     // if we are connected to MQTT server
     if (mqttServerConneted())
     {
-      digitalWrite(BuiltinLED, LOW);        // blink buildin LED
-      publish_data(millis(), currentPos);   // publish current position to server
-      digitalWrite(BuiltinLED, HIGH);       // switch off buildin LED
+      digitalWrite(BuiltinLED, LOW);      // blink buildin LED
+      publish_data(millis(), currentPos); // publish current position to server
+      digitalWrite(BuiltinLED, HIGH);     // switch off buildin LED
       // save next publish time depending on motor state
       publishTimer = timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }

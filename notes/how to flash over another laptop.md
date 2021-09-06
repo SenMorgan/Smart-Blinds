@@ -7,4 +7,4 @@ Connect to laptop via SSH
 Install esptool by typing sudo apt install esptool
 Find out IP address by typing ip addr
 Open *.bin file folder
-For start falshing type esptool -cd nodemcu -cf firmware.bin
+For start flashing type esptool -cd nodemcu -cf firmware.bin
