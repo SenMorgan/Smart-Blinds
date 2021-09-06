@@ -1,9 +1,11 @@
 /**************************************************************
  *  main.cpp
  *
- *  Created on: 07 August 2019
+ *  Created in Arduino IDE: 07 August 2019
  *  Rebuild in PlatformIO: 01 September 2021
  *  Author: SenMorgan https://github.com/SenMorgan
+ * 
+ *  All definitions are in /lib/defs/def.h
  *  
  ***************************************************************/
 
@@ -159,15 +161,19 @@ void mqtt_parse_message()
 
 void loop()
 {
+  // save actual time
   uint32_t timeNow = millis();
 
+  // if it is time to publish data
   if (timeNow > publishTimer)
   {
+    // if we are connected to MQTT server
     if (mqttServerConneted())
     {
-      digitalWrite(BuiltinLED, LOW);
-      publish_data(millis(), currentPos);
-      digitalWrite(BuiltinLED, HIGH);
+      digitalWrite(BuiltinLED, LOW);        // blink buildin LED
+      publish_data(millis(), currentPos);   // publish current position to server
+      digitalWrite(BuiltinLED, HIGH);       // switch off buildin LED
+      // save next publish time depending on motor state
       publishTimer = timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
     else
@@ -177,7 +183,6 @@ void loop()
     }
   }
   mqttLoop();
-  //mqtt_parse_message(&msgFlag, &msgTopic, &msgString);
   mqtt_parse_message();
   button_read();
   stepper_prog();

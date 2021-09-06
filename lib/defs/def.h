@@ -13,9 +13,9 @@
 #define MQTT_PORT       1883
 
 // delay in ms between reporting states to MQTT server in idle mode
-#define PUBLISH_STEP_SHORT  10000
+#define PUBLISH_STEP_LONG  30000
 // delay in ms between reporting states to MQTT server in moving mode
-#define PUBLISH_STEP_LONG  500
+#define PUBLISH_STEP_SHORT  500
 // maximum steps value (calculated manually)
 #define MAX_POSITION 104000
 
