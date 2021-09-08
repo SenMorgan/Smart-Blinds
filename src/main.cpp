@@ -22,8 +22,13 @@
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
+// position value from 0% to 100%
 byte currentPos = 0, targetPos = 0;
-boolean holdPos = 0, stepperEnabled = 0;
+// stop on actual position flag
+bool holdPos = 0;
+// actual motor state. True if moving
+bool stepperEnabled = 0;
+
 uint32_t publishTimer = 0;
 
 void stepper_prog(void)
@@ -67,7 +72,7 @@ void button_read(void)
 #define readButtonStep 50
 #define buttonDirStep 1000
   static unsigned long readButtonTimer, buttonDirTimer;
-  static boolean Button_Up_released, Button_Down_released;
+  static bool Button_Up_released, Button_Down_released;
 
   if (millis() > readButtonTimer)
   {
@@ -109,25 +114,28 @@ void button_read(void)
   }
 }
 
+// Checking if there is a new message and parsing it
 void mqtt_parse_message(void)
 {
   if (msgFlag)
   {
+    //  reset flag
     msgFlag = 0;
 
-    if (msgTopic == "/Cover/set")
+    // if command topic received
+    if (msgTopic == MQTT_CMD_TOPIC)
     {
-      if (msgString == "OPEN")
+      if (msgString == MQTT_CMD_OPEN)
         targetPos = 100;
-      else if (msgString == "CLOSE")
+      else if (msgString == MQTT_CMD_CLOSE)
         targetPos = 0;
-      else if (msgString == "STOP")
+      else if (msgString == MQTT_CMD_STOP)
         holdPos = 1;
     }
-    else if (msgTopic == "/Cover/set_position")
+    // if position topic received
+    else if (msgTopic == MQTT_SET_POSITION_TOPIC)
     {
       targetPos = constrain(msgString.toInt(), 0, 100);
-      //Serial.print("Mqtt set position: "); Serial.println(targetPos);
     }
   }
 }
@@ -149,11 +157,11 @@ void setup(void)
   // fetches ssid and pass from eeprom and tries to connect
   // if it does not connect it starts an access point with the "Smart Blinds" name
   // and goes into a blocking loop awaiting configuration
-  wifiManager.autoConnect("Smart Blinds");
+  wifiManager.autoConnect(HOSTNAME);
   // continue if conected
 
   init_MQTT(MQTT_SERVER, MQTT_PORT);
-  ArduinoOTA.setHostname("Smart_Blinds");
+  ArduinoOTA.setHostname(HOSTNAME);
   ArduinoOTA.begin();
   ArduinoOTA.setPassword(OTA_PASS);
   ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
@@ -170,28 +178,30 @@ void setup(void)
 void loop(void)
 {
   ArduinoOTA.handle();
-  // save actual time
   uint32_t timeNow = millis();
+  uint8_t connectedToServer = mqttLoop();
 
   // if it is time to publish data
   if (timeNow > publishTimer)
   {
     // if we are connected to MQTT server
-    if (mqttServerConneted())
+    if (connectedToServer)
     {
       digitalWrite(BuiltinLED, LOW);      // blink buildin LED
       publish_data(millis(), currentPos); // publish current position to server
       digitalWrite(BuiltinLED, HIGH);     // switch off buildin LED
-      // save next publish time depending on motor state
-      publishTimer = timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
+
+      publishTimer = // save next publish time depending on actual motor state
+          timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
     else
     {
       reconnect();
+      // increasing timer period during reconnection process
       publishTimer = PUBLISH_STEP_LONG;
     }
   }
-  mqttLoop();
+
   mqtt_parse_message();
   button_read();
   stepper_prog();
