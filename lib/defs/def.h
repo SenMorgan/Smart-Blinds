@@ -30,6 +30,12 @@
 #define MQTT_CMD_STOP               "STOP"
 #define MQTT_SET_POSITION_TOPIC     "/Cover/set_position"
 
+// timer period in ms to check buttons states
+#define READ_BUTTONS_STEP           50
+// period in ms after toggling buttons in which changing direction is detected
+// needs if you have a button with only 2-positions
+#define CHANGE_DIRRECTION_DELAY     1000
+
 // delay in ms between reporting states to MQTT server in idle mode
 #define PUBLISH_STEP_LONG   30000
 // delay in ms between reporting states to MQTT server in moving mode
@@ -42,8 +48,8 @@
 #define PIN_DIR         D2
 #define PIN_ENABLE      D3
 
-#define BuiltinLED      D4
-#define Button_1_PIN    D6
-#define Button_2_PIN    D7
+#define STATUS_LED      D4
+#define BUTTON_1        D6
+#define BUTTON_2        D7
 
 #endif /* DEF_H */

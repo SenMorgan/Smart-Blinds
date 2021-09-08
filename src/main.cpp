@@ -24,12 +24,91 @@ AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
 // position value from 0% to 100%
 byte currentPos = 0, targetPos = 0;
-// stop on actual position flag
-bool holdPos = 0;
 // actual motor state. True if moving
 bool stepperEnabled = 0;
 
 uint32_t publishTimer = 0;
+
+// Checking if there is a new message and parsing it
+void mqtt_parse_message(void)
+{
+  if (msgFlag)
+  {
+    //  reset flag
+    msgFlag = 0;
+
+    // if command topic received
+    if (msgTopic == MQTT_CMD_TOPIC)
+    {
+      if (msgString == MQTT_CMD_OPEN)
+        targetPos = 100;
+      else if (msgString == MQTT_CMD_CLOSE)
+        targetPos = 0;
+      else if (msgString == MQTT_CMD_STOP)
+        targetPos = currentPos;
+    }
+    // if position topic received
+    else if (msgTopic == MQTT_SET_POSITION_TOPIC)
+    {
+      targetPos = constrain(msgString.toInt(), 0, 100);
+    }
+  }
+}
+
+// Reading buttons states
+void buttons_read(void)
+{
+  static uint32_t lastReadTimeStamp, buttonPressedTimeStamp;
+  // button state flag
+  static bool Button_Up_released, Button_Down_released;
+
+  // if it is time to read buttons states
+  if (millis() - lastReadTimeStamp >= READ_BUTTONS_STEP)
+  {
+    lastReadTimeStamp = millis();
+
+    // if button UP pressed
+    if (digitalRead(BUTTON_1) && Button_Up_released)
+    {
+      Button_Up_released = false;
+      // if motor isn't moving and buttons wasn't toggled for CHANGE_DIRRECTION_DELAY period
+      if (!stepperEnabled || millis() - buttonPressedTimeStamp >= CHANGE_DIRRECTION_DELAY)
+      {
+        buttonPressedTimeStamp = millis();
+        // open at 100%
+        targetPos = 100;
+      }
+      // else - save actual position as target
+      else
+        targetPos = currentPos;
+    }
+    // reset flag if button relesed
+    else if (!digitalRead(BUTTON_1) && !Button_Up_released)
+    {
+      Button_Up_released = true;
+    }
+
+    else if (digitalRead(BUTTON_2) && Button_Down_released)
+    {
+      Button_Down_released = false;
+      // if motor isn't moving and buttons wasn't toggled for CHANGE_DIRRECTION_DELAY period
+      if (!stepperEnabled || millis() - buttonPressedTimeStamp >= CHANGE_DIRRECTION_DELAY)
+      {
+        buttonPressedTimeStamp = millis();
+        // open at 0%
+        targetPos = 0;
+      }
+      // else - save actual position as target
+      else
+        targetPos = currentPos;
+    }
+    // reset flag if button relesed
+    else if (!digitalRead(BUTTON_2) && !Button_Down_released)
+    {
+      Button_Down_released = true;
+    }
+  }
+}
 
 void stepper_prog(void)
 {
@@ -49,11 +128,6 @@ void stepper_prog(void)
     uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
     stepper.moveTo(targetPosInSteps);
   }
-  else if (holdPos)
-  {
-    holdPos = false;
-    targetPos = currentPos;
-  }
   else if (stepperEnabled && !stepper.isRunning() && antiDriftTimer == 0)
     antiDriftTimer = millis() + 2000;
   else if (antiDriftTimer > 0 && millis() > antiDriftTimer)
@@ -67,82 +141,9 @@ void stepper_prog(void)
   stepper.run();
 }
 
-void button_read(void)
-{
-#define readButtonStep 50
-#define buttonDirStep 1000
-  static unsigned long readButtonTimer, buttonDirTimer;
-  static bool Button_Up_released, Button_Down_released;
-
-  if (millis() > readButtonTimer)
-  {
-    readButtonTimer = millis() + readButtonStep;
-
-    if (digitalRead(Button_1_PIN) && Button_Up_released)
-    {
-      Button_Up_released = false;
-      Serial.println("Button UP pressed");
-      if (!stepperEnabled || millis() < buttonDirTimer)
-      {
-        targetPos = 100;
-        buttonDirTimer = millis() + buttonDirStep;
-      }
-      else
-        holdPos = true;
-    }
-    else if (!digitalRead(Button_1_PIN) && !Button_Up_released)
-    {
-      Button_Up_released = true;
-    }
-
-    else if (digitalRead(Button_2_PIN) && Button_Down_released)
-    {
-      Button_Down_released = false;
-      Serial.println("Button DOWN pressed");
-      if (!stepperEnabled || millis() < buttonDirTimer)
-      {
-        targetPos = 0;
-        buttonDirTimer = millis() + buttonDirStep;
-      }
-      else
-        holdPos = true;
-    }
-    else if (!digitalRead(Button_2_PIN) && !Button_Down_released)
-    {
-      Button_Down_released = true;
-    }
-  }
-}
-
-// Checking if there is a new message and parsing it
-void mqtt_parse_message(void)
-{
-  if (msgFlag)
-  {
-    //  reset flag
-    msgFlag = 0;
-
-    // if command topic received
-    if (msgTopic == MQTT_CMD_TOPIC)
-    {
-      if (msgString == MQTT_CMD_OPEN)
-        targetPos = 100;
-      else if (msgString == MQTT_CMD_CLOSE)
-        targetPos = 0;
-      else if (msgString == MQTT_CMD_STOP)
-        holdPos = 1;
-    }
-    // if position topic received
-    else if (msgTopic == MQTT_SET_POSITION_TOPIC)
-    {
-      targetPos = constrain(msgString.toInt(), 0, 100);
-    }
-  }
-}
-
 void setup(void)
 {
-  pinMode(BuiltinLED, OUTPUT);
+  pinMode(STATUS_LED, OUTPUT);
 
   EEPROM.begin(4);
   EEPROM.get(0, currentPos);
@@ -165,9 +166,9 @@ void setup(void)
   ArduinoOTA.begin();
   ArduinoOTA.setPassword(OTA_PASS);
   ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
-                        { digitalWrite(BuiltinLED, !digitalRead(BuiltinLED)); });
+                        { digitalWrite(STATUS_LED, !digitalRead(STATUS_LED)); });
   ArduinoOTA.onEnd([]()
-                   { digitalWrite(BuiltinLED, 1); });
+                   { digitalWrite(STATUS_LED, 1); });
 
   stepper.setEnablePin(PIN_ENABLE);
   stepper.setPinsInverted(false, false, false, false, true);
@@ -187,9 +188,9 @@ void loop(void)
     // if we are connected to MQTT server
     if (connectedToServer)
     {
-      digitalWrite(BuiltinLED, LOW);      // blink buildin LED
+      digitalWrite(STATUS_LED, LOW);      // blink buildin LED
       publish_data(millis(), currentPos); // publish current position to server
-      digitalWrite(BuiltinLED, HIGH);     // switch off buildin LED
+      digitalWrite(STATUS_LED, HIGH);     // switch off buildin LED
 
       publishTimer = // save next publish time depending on actual motor state
           timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
@@ -203,7 +204,7 @@ void loop(void)
   }
 
   mqtt_parse_message();
-  button_read();
+  buttons_read();
   stepper_prog();
   yield();
 }
