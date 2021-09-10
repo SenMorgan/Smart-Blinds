@@ -22,9 +22,6 @@
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
-// actual motor state. True if moving
-bool stepperEnabled = 0;
-
 uint32_t publishTimer = 0;
 
 // Checking if there is a new message and parsing it
@@ -58,56 +55,50 @@ void buttons_read(void)
 {
   static uint32_t lastReadTimeStamp, buttonPressedTimeStamp;
   // button state flag
-  static bool Button_Up_released, Button_Down_released;
+  static bool buttonUpReleased, buttonDownReleased;
 
   // if it is time to read buttons states
   if (millis() - lastReadTimeStamp >= READ_BUTTONS_STEP)
   {
     lastReadTimeStamp = millis();
-
     // if button UP pressed
-    if (digitalRead(BUTTON_1) && Button_Up_released)
+    if (digitalRead(BUTTON_1) && buttonUpReleased)
     {
-      Button_Up_released = false;
-      // if motor isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
-      if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
+      // set the flag to pevent entering more times
+      buttonUpReleased = false;
+      // if stepper isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
+      if (!stepper.distanceToGo() || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
-        // open to MAX
         stepper.moveTo(MAX_POSITION);
       }
-      // else - save actual position as target
       else
         stepper.stop();
     }
-    // reset flag if button relesed
-    else if (!digitalRead(BUTTON_1) && !Button_Up_released)
-    {
-      Button_Up_released = true;
-    }
+    // reset flag if button released
+    else if (!digitalRead(BUTTON_1) && !buttonUpReleased)
+      buttonUpReleased = true;
     // if button DOWN pressed
-    else if (digitalRead(BUTTON_2) && Button_Down_released)
+    else if (digitalRead(BUTTON_2) && buttonDownReleased)
     {
-      Button_Down_released = false;
-      // if motor isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
-      if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
+      // set the flag to pevent entering more times
+      buttonDownReleased = false;
+      // if stepper isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
+      if (!stepper.distanceToGo() || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
-        // close to 0
         stepper.moveTo(0);
       }
-      // else - save actual position as target
       else
         stepper.stop();
     }
-    // reset flag if button relesed
-    else if (!digitalRead(BUTTON_2) && !Button_Down_released)
-    {
-      Button_Down_released = true;
-    }
+    // reset flag if button released
+    else if (!digitalRead(BUTTON_2) && !buttonDownReleased)
+      buttonDownReleased = true;
   }
 }
 
+// Controlling stepper modes and saving position to EEPROM
 void stepper_prog(void)
 {
   static uint32_t stoppedTimeStamp = 0;
@@ -115,35 +106,31 @@ void stepper_prog(void)
 
   switch (stepperMode)
   {
-  case 0:
+  case 0: // idle positon - not moving
+    // waiting for target position to be changed
     if (stepper.distanceToGo() != 0)
     {
-      stepperEnabled = true;
       stepper.enableOutputs();
+      // reset timer to allow faster publishing
       publishTimer = 0;
       stepperMode++;
     }
     break;
-  case 1:
-    /*
-    if (oldTargetPos != targetPos)
-    {
-      oldTargetPos = targetPos;
-      stepper.moveTo(targetPos);
-    }
-    */
+  case 1: // active mode - stepper is running
+    // making stepper to move and checking if the target position reached
     if (!stepper.run())
     {
       stoppedTimeStamp = millis();
       stepperMode++;
     }
     break;
-  case 2:
+  case 2: // antidrift mode - holding motor for some time to prevent drifting
+    // if target position changed - go back to mode 1
     if (stepper.distanceToGo() != 0)
       stepperMode = 1;
+    // when timer ended - stop stepper holding and save new position
     else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
     {
-      stepperEnabled = false;
       stepper.disableOutputs();
       EEPROM.put(0, stepper.currentPosition());
       EEPROM.commit();
@@ -156,8 +143,9 @@ void stepper_prog(void)
 void setup(void)
 {
   pinMode(STATUS_LED, OUTPUT);
+  digitalWrite(STATUS_LED, LOW);
 
-  // position value in steps
+  // read saved stepper position
   uint32_t targetPos = 0;
   EEPROM.begin(4);
   EEPROM.get(0, targetPos);
@@ -205,8 +193,8 @@ void loop(void)
                    map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100));
       digitalWrite(STATUS_LED, HIGH); // switch off buildin LED
 
-      publishTimer = // save next publish time depending on actual motor state
-          timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
+      publishTimer = // save next publish time depending on actual stepper state
+          timeNow + ((stepper.distanceToGo() != 0) ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
     else
     {
