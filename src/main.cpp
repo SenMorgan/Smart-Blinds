@@ -199,7 +199,7 @@ void loop(void)
     {
       reconnect();
       // increasing timer period during reconnection process
-      publishTimer = PUBLISH_STEP_LONG;
+      publishTimer = timeNow + PUBLISH_STEP_LONG;
     }
   }
 
