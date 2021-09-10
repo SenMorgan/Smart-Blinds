@@ -41,6 +41,20 @@ void mqtt_parse_message(void)
         stepper.moveTo(0);
       else if (msgString == MQTT_CMD_STOP)
         stepper.stop();
+      else if (msgString == MQTT_CMD_CORRECT_UP)
+      {
+        // save actual positon, correct zero point and return to saved position
+        uint16_t actualPosition = stepper.currentPosition();
+        stepper.setCurrentPosition(stepper.currentPosition() - CORRECTION_OFFSET);
+        stepper.moveTo(actualPosition);
+      }
+      else if (msgString == MQTT_CMD_CORRECT_DOWN)
+      {
+        // save actual positon, correct zero point and return to saved position
+        uint16_t actualPosition = stepper.currentPosition();
+        stepper.setCurrentPosition(stepper.currentPosition() + CORRECTION_OFFSET);
+        stepper.moveTo(actualPosition);
+      }
     }
     // if position topic received
     else if (msgTopic == MQTT_SET_POSITION_TOPIC)
