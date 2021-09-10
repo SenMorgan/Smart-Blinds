@@ -22,8 +22,6 @@
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
-// position value in steps
-uint32_t targetPos = 0;
 // actual motor state. True if moving
 bool stepperEnabled = 0;
 
@@ -41,16 +39,16 @@ void mqtt_parse_message(void)
     if (msgTopic == MQTT_CMD_TOPIC)
     {
       if (msgString == MQTT_CMD_OPEN)
-        targetPos = MAX_POSITION;
+        stepper.moveTo(MAX_POSITION);
       else if (msgString == MQTT_CMD_CLOSE)
-        targetPos = 0;
+        stepper.moveTo(0);
       else if (msgString == MQTT_CMD_STOP)
-        targetPos = stepper.currentPosition();
+        stepper.stop();
     }
     // if position topic received
     else if (msgTopic == MQTT_SET_POSITION_TOPIC)
     {
-      targetPos = map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION);
+      stepper.moveTo(map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION));
     }
   }
 }
@@ -76,11 +74,11 @@ void buttons_read(void)
       {
         buttonPressedTimeStamp = millis();
         // open to MAX
-        targetPos = MAX_POSITION;
+        stepper.moveTo(MAX_POSITION);
       }
       // else - save actual position as target
       else
-        targetPos = stepper.currentPosition();
+        stepper.stop();
     }
     // reset flag if button relesed
     else if (!digitalRead(BUTTON_1) && !Button_Up_released)
@@ -96,11 +94,11 @@ void buttons_read(void)
       {
         buttonPressedTimeStamp = millis();
         // close to 0
-        targetPos = 0;
+        stepper.moveTo(0);
       }
       // else - save actual position as target
       else
-        targetPos = stepper.currentPosition();
+        stepper.stop();
     }
     // reset flag if button relesed
     else if (!digitalRead(BUTTON_2) && !Button_Down_released)
@@ -112,13 +110,13 @@ void buttons_read(void)
 
 void stepper_prog(void)
 {
-  static uint32_t oldTargetPos = 0, stoppedTimeStamp = 0;
+  static uint32_t stoppedTimeStamp = 0;
   static uint8_t stepperMode = 0;
 
   switch (stepperMode)
   {
   case 0:
-    if (oldTargetPos != targetPos)
+    if (stepper.distanceToGo() != 0)
     {
       stepperEnabled = true;
       stepper.enableOutputs();
@@ -127,11 +125,13 @@ void stepper_prog(void)
     }
     break;
   case 1:
+    /*
     if (oldTargetPos != targetPos)
     {
       oldTargetPos = targetPos;
       stepper.moveTo(targetPos);
     }
+    */
     if (!stepper.run())
     {
       stoppedTimeStamp = millis();
@@ -139,7 +139,7 @@ void stepper_prog(void)
     }
     break;
   case 2:
-    if (oldTargetPos != targetPos)
+    if (stepper.distanceToGo() != 0)
       stepperMode = 1;
     else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
     {
@@ -157,6 +157,8 @@ void setup(void)
 {
   pinMode(STATUS_LED, OUTPUT);
 
+  // position value in steps
+  uint32_t targetPos = 0;
   EEPROM.begin(4);
   EEPROM.get(0, targetPos);
   stepper.setCurrentPosition(targetPos);
