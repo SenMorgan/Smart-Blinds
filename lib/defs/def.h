@@ -42,6 +42,8 @@
 #define PUBLISH_STEP_SHORT  500
 // maximum steps value (calculated manually)
 #define MAX_POSITION        104000
+// delay in ms to hold motor after the end of moving to prevent drifting
+#define AFTER_STOP_DELAY    2000
 
 // stepper motor driver pins
 #define PIN_STEP        D1

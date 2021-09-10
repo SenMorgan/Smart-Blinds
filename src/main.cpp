@@ -71,8 +71,8 @@ void buttons_read(void)
     if (digitalRead(BUTTON_1) && Button_Up_released)
     {
       Button_Up_released = false;
-      // if motor isn't moving and buttons wasn't toggled for CHANGE_DIRRECTION_DELAY period
-      if (!stepperEnabled || millis() - buttonPressedTimeStamp >= CHANGE_DIRRECTION_DELAY)
+      // if motor isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
+      if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
         // open at 100%
@@ -87,12 +87,12 @@ void buttons_read(void)
     {
       Button_Up_released = true;
     }
-
+    // if button DOWN pressed
     else if (digitalRead(BUTTON_2) && Button_Down_released)
     {
       Button_Down_released = false;
-      // if motor isn't moving and buttons wasn't toggled for CHANGE_DIRRECTION_DELAY period
-      if (!stepperEnabled || millis() - buttonPressedTimeStamp >= CHANGE_DIRRECTION_DELAY)
+      // if motor isn't moving OR buttons was toggled in CHANGE_DIRRECTION_DELAY period
+      if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
         // open at 0%
@@ -112,33 +112,51 @@ void buttons_read(void)
 
 void stepper_prog(void)
 {
-  static byte oldTargetPos;
-  static unsigned long antiDriftTimer;
+  static byte oldTargetPos = 0;
+  static uint32_t stoppedTimeStamp = 0;
+  static uint8_t stepperMode = 0;
 
-  currentPos = map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100);
-  if (oldTargetPos != targetPos)
+  switch (stepperMode)
   {
-    oldTargetPos = targetPos;
-    if (!stepperEnabled)
+  case 0:
+    if (oldTargetPos != targetPos)
     {
       stepperEnabled = true;
       stepper.enableOutputs();
       publishTimer = 0;
+      stepperMode++;
     }
-    uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
-    stepper.moveTo(targetPosInSteps);
+    break;
+  case 1:
+    if (oldTargetPos != targetPos)
+    {
+      oldTargetPos = targetPos;
+      uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
+      stepper.moveTo(targetPosInSteps);
+    }
+    if (stepper.run())
+    {
+      currentPos = map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100);
+    }
+    else
+    {
+      stoppedTimeStamp = millis();
+      stepperMode++;
+    }
+    break;
+  case 2:
+    if (oldTargetPos != targetPos)
+      stepperMode = 1;
+    if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
+    {
+      stepperEnabled = false;
+      stepper.disableOutputs();
+      EEPROM.put(0, currentPos);
+      EEPROM.commit();
+      stepperMode = 0;
+    }
+    break;
   }
-  else if (stepperEnabled && !stepper.isRunning() && antiDriftTimer == 0)
-    antiDriftTimer = millis() + 2000;
-  else if (antiDriftTimer > 0 && millis() > antiDriftTimer)
-  {
-    antiDriftTimer = 0;
-    stepperEnabled = false;
-    stepper.disableOutputs();
-    EEPROM.put(0, currentPos);
-    EEPROM.commit();
-  }
-  stepper.run();
 }
 
 void setup(void)
@@ -180,7 +198,7 @@ void loop(void)
 {
   ArduinoOTA.handle();
   uint32_t timeNow = millis();
-  uint8_t connectedToServer = mqttLoop();
+  bool connectedToServer = mqttLoop();
 
   // if it is time to publish data
   if (timeNow > publishTimer)
