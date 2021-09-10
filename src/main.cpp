@@ -22,8 +22,8 @@
 
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
-// position value from 0% to 100%
-byte currentPos = 0, targetPos = 0;
+// position value in steps
+uint32_t targetPos = 0;
 // actual motor state. True if moving
 bool stepperEnabled = 0;
 
@@ -41,16 +41,16 @@ void mqtt_parse_message(void)
     if (msgTopic == MQTT_CMD_TOPIC)
     {
       if (msgString == MQTT_CMD_OPEN)
-        targetPos = 100;
+        targetPos = MAX_POSITION;
       else if (msgString == MQTT_CMD_CLOSE)
         targetPos = 0;
       else if (msgString == MQTT_CMD_STOP)
-        targetPos = currentPos;
+        targetPos = stepper.currentPosition();
     }
     // if position topic received
     else if (msgTopic == MQTT_SET_POSITION_TOPIC)
     {
-      targetPos = constrain(msgString.toInt(), 0, 100);
+      targetPos = map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION);
     }
   }
 }
@@ -75,12 +75,12 @@ void buttons_read(void)
       if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
-        // open at 100%
-        targetPos = 100;
+        // open to MAX
+        targetPos = MAX_POSITION;
       }
       // else - save actual position as target
       else
-        targetPos = currentPos;
+        targetPos = stepper.currentPosition();
     }
     // reset flag if button relesed
     else if (!digitalRead(BUTTON_1) && !Button_Up_released)
@@ -95,12 +95,12 @@ void buttons_read(void)
       if (!stepperEnabled || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
-        // open at 0%
+        // close to 0
         targetPos = 0;
       }
       // else - save actual position as target
       else
-        targetPos = currentPos;
+        targetPos = stepper.currentPosition();
     }
     // reset flag if button relesed
     else if (!digitalRead(BUTTON_2) && !Button_Down_released)
@@ -112,8 +112,7 @@ void buttons_read(void)
 
 void stepper_prog(void)
 {
-  static byte oldTargetPos = 0;
-  static uint32_t stoppedTimeStamp = 0;
+  static uint32_t oldTargetPos = 0, stoppedTimeStamp = 0;
   static uint8_t stepperMode = 0;
 
   switch (stepperMode)
@@ -131,14 +130,9 @@ void stepper_prog(void)
     if (oldTargetPos != targetPos)
     {
       oldTargetPos = targetPos;
-      uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
-      stepper.moveTo(targetPosInSteps);
+      stepper.moveTo(targetPos);
     }
-    if (stepper.run())
-    {
-      currentPos = map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100);
-    }
-    else
+    if (!stepper.run())
     {
       stoppedTimeStamp = millis();
       stepperMode++;
@@ -147,11 +141,11 @@ void stepper_prog(void)
   case 2:
     if (oldTargetPos != targetPos)
       stepperMode = 1;
-    if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
+    else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
     {
       stepperEnabled = false;
       stepper.disableOutputs();
-      EEPROM.put(0, currentPos);
+      EEPROM.put(0, stepper.currentPosition());
       EEPROM.commit();
       stepperMode = 0;
     }
@@ -164,10 +158,8 @@ void setup(void)
   pinMode(STATUS_LED, OUTPUT);
 
   EEPROM.begin(4);
-  EEPROM.get(0, currentPos);
-  targetPos = currentPos;
-  uint32_t targetPosInSteps = map(targetPos, 0, 100, 0, MAX_POSITION);
-  stepper.setCurrentPosition(targetPosInSteps);
+  EEPROM.get(0, targetPos);
+  stepper.setCurrentPosition(targetPos);
 
   Serial.begin(115200);
 
@@ -206,9 +198,10 @@ void loop(void)
     // if we are connected to MQTT server
     if (connectedToServer)
     {
-      digitalWrite(STATUS_LED, LOW);      // blink buildin LED
-      publish_data(millis(), currentPos); // publish current position to server
-      digitalWrite(STATUS_LED, HIGH);     // switch off buildin LED
+      digitalWrite(STATUS_LED, LOW); // blink buildin LED
+      publish_data(millis(),         // publish current position to server in 0~100% range
+                   map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100));
+      digitalWrite(STATUS_LED, HIGH); // switch off buildin LED
 
       publishTimer = // save next publish time depending on actual motor state
           timeNow + (stepperEnabled ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
