@@ -165,8 +165,6 @@ void setup(void)
   EEPROM.get(0, targetPos);
   stepper.setCurrentPosition(targetPos);
 
-  Serial.begin(115200);
-
   // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   // fetches ssid and pass from eeprom and tries to connect
@@ -186,8 +184,13 @@ void setup(void)
 
   stepper.setEnablePin(PIN_ENABLE);
   stepper.setPinsInverted(false, false, false, false, true);
-  stepper.setMaxSpeed(2000.0);
-  stepper.setAcceleration(1300.0);
+  stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+  stepper.setAcceleration(STEPPER_ACCELERATION);
+
+  // make some sound noize to know that cover is ready to work
+  stepper.enableOutputs();
+  delay(1000);
+  stepper.disableOutputs();
 }
 
 void loop(void)
@@ -210,7 +213,8 @@ void loop(void)
       publishTimer = // save next publish time depending on actual stepper state
           timeNow + ((stepper.distanceToGo() != 0) ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
-    else
+    // we can try to reconnect only if stepper isn't moving
+    else if (!stepper.distanceToGo())
     {
       reconnect();
       // increasing timer period during reconnection process
