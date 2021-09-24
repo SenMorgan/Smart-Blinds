@@ -1,4 +1,5 @@
 .pio
-.vscode/*
+.vscode
 lib/defs/secrets.h
-test/*
+test
+lib/WiFiManager
