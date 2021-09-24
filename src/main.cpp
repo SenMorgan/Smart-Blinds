@@ -20,6 +20,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
 
+WiFiManager WiFiMan;
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
 uint32_t publishTimer = 0;
@@ -165,13 +166,9 @@ void setup(void)
   EEPROM.get(0, targetPos);
   stepper.setCurrentPosition(targetPos);
 
-  // Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-  // fetches ssid and pass from eeprom and tries to connect
-  // if it does not connect it starts an access point with the "Smart Blinds" name
-  // and goes into a blocking loop awaiting configuration
-  wifiManager.autoConnect(HOSTNAME);
-  // continue if conected
+  // if false then the configportal will be in non blocking loop
+  WiFiMan.setConfigPortalBlocking(false);
+  WiFiMan.autoConnect(HOSTNAME);
 
   init_MQTT(MQTT_SERVER, MQTT_PORT);
   ArduinoOTA.setHostname(HOSTNAME);
@@ -196,6 +193,10 @@ void setup(void)
 void loop(void)
 {
   ArduinoOTA.handle();
+  // if stepper isn't moving than we can process configportal
+  if (!stepper.distanceToGo())
+    WiFiMan.process();
+
   uint32_t timeNow = millis();
   bool connectedToServer = mqttLoop();
 
