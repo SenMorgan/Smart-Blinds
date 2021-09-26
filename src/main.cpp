@@ -184,7 +184,7 @@ void setup(void)
   stepper.setMaxSpeed(STEPPER_MAX_SPEED);
   stepper.setAcceleration(STEPPER_ACCELERATION);
 
-  // make some sound noize to know that cover is ready to work
+  // make some sound noize to know that blinds are ready to work
   stepper.enableOutputs();
   delay(1000);
   stepper.disableOutputs();
