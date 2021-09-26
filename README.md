@@ -55,18 +55,18 @@ Project was created 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.20
  - State report is provided every ```PUBLISH_STEP_LONG``` (default **30**) seconds in idle and ```PUBLISH_STEP_SHORT``` (default **0.5**) seconds when moving.
  - Command topic to set blinds position (**0~100%**) is 
   ```yaml
-    #define MQTT_SET_POSITION_TOPIC     "/Cover/set_positi
+    #define MQTT_SET_POSITION_TOPIC     "/blinds/set_positi
   ```
  - You can control blinds with *Open*, *Close* and *Stop* commands by using this topic and payloads:
  ```yaml
-    #define MQTT_CMD_TOPIC              "/Cover/set"
+    #define MQTT_CMD_TOPIC              "/blinds/set"
     #define MQTT_CMD_OPEN               "OPEN"
     #define MQTT_CMD_CLOSE              "CLOSE"
     #define MQTT_CMD_STOP               "STOP"
  ```
  - State report topic returns the value of actual blinds position from **0%** to **100%**
  ```yaml
-    #define MQTT_PUBLISH_TOPIC          "/Cover/position"
+    #define MQTT_PUBLISH_TOPIC          "/blinds/position"
  ```
 
 
@@ -78,11 +78,11 @@ cover:
   - platform: mqtt
     name: "Bedroom"
     device_class: shade
-    command_topic: "/Cover/set"
-    position_topic: "/Cover/position"
+    command_topic: "/blinds/set"
+    position_topic: "/blinds/position"
     availability:
-      - topic: "/Cover/availability"
-    set_position_topic: "/Cover/set_position"
+      - topic: "/blinds/availability"
+    set_position_topic: "/blinds/set_position"
     payload_open: "OPEN"
     payload_close: "CLOSE"
     payload_stop: "STOP"
