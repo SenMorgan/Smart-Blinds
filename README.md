@@ -1,7 +1,7 @@
 # Smart Blinds Controller
 
-Motorized Smart Roller Blinds Controller with MQTT control and WEB configuration portal for WiFi connection.
-Project was created 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.2021
+Motorized Smart Roller Blinds Controller with MQTT control and WEB configuration portal for WiFi connection. <br>
+The project was created on 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.2021
 
 <br>
 
@@ -44,10 +44,10 @@ Project was created 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.20
 
 #endif /* SECRETS_h */
 ```
-- :warning:Don't forget to write your own credentials and setting in bouth files!:warning:
-- Build this project and upload to yours ESPx module.
-- After succefull flash please follow [this WiFiManager guide](https://github.com/tzapu/WiFiManager#how-it-works).
-- When the ESP have connected to WiFi, you can start sending commands by MQTT
+- :warning:Don't forget to write your own credentials and setting in both files!:warning:
+- Build this project and upload it to your ESPx module.
+- After succeful flash please follow [this WiFiManager guide](https://github.com/tzapu/WiFiManager#how-it-works).
+- When the ESP has connected to WiFi, you can start sending commands by MQTT
 
 <br>
 
@@ -103,4 +103,4 @@ MQTT library v2.8 https://github.com/knolleary/pubsubclient
 
 ## Copyright
 
-Copyright (c) 2021 Sen Morgan. Licenced under the MIT licence, see LICENSE.md
+Copyright (c) 2021 Sen Morgan. Licensed under the MIT license, see LICENSE.md
