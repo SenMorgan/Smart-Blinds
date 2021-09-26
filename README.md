@@ -1,4 +1,10 @@
-# Smart-Blinds
+# Smart Blinds Controller
+
+Motorized Smart Roller Blinds Controller with MQTT control and WEB configuration portal for WiFi connection.
+Project was created 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.2021
+
+<br>
+
 
 [![Build with PlatformIO](https://img.shields.io/badge/Build%20with-PlatformIO-orange)](https://platformio.org/)
 
@@ -8,38 +14,92 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
-Motorized Smart Roller Blinds Controller with MQTT control and WEB configuration portal for WiFi connection.
+<br>
 
-Open this project in [PlatforIO](https://platformio.org/)
+![](Smart-blinds.gif)
 
-All settings (motor and MQTT) are hardcoded in ``/lib/defs/def.h``
+<br>
 
-Also you need to create ``/lib/defs/secrets.h`` file and paste in there:
+## Wiring Schematic
+
+<img src="https://media3.giphy.com/media/TLeLKUdIc1tvAxb7ab/source.gif" width="400" height="250" />
+
+<br>
+
+## Getting Started 
+
+- Open this project in [PlatformIO](https://platformio.org/)
+- Change settings as you wish in ``/lib/defs/def.h``
+- Also you need to create ``/lib/defs/secrets.h`` file and paste in there:
 
 ```cpp
 #ifndef SECRETS_h
 #define SECRETS_h
 
+/* change these variables as your own */
 #define MQTT_LOGIN     "your_login"
 #define MQTT_PASSWORD  "your_password"
 #define OTA_PASS       "your_OTA_password"
-
+/* stop changing here */
 
 #endif /* SECRETS_h */
 ```
-:warning:Don't forget to write your own credentials!:warning:
+- :warning:Don't forget to write your own credentials and setting in bouth files!:warning:
+- Build this project and upload to yours ESPx module.
+- After succefull flash please follow [this WiFiManager guide](https://github.com/tzapu/WiFiManager#how-it-works).
+- When the ESP have connected to WiFi, you can start sending commands by MQTT
 
-Build this project and upload to yours ESPx module.
+<br>
 
-Project was created 07.08.2019 in Arduino IDE and rebuild in PlatformIO 01.09.2021
+## MQTT:
+ - State report is provided every ```PUBLISH_STEP_LONG``` (default **30**) seconds in idle and ```PUBLISH_STEP_SHORT``` (default **0.5**) seconds when moving.
+ - Command topic to set blinds position (**0~100%**) is 
+  ```yaml
+    #define MQTT_SET_POSITION_TOPIC     "/Cover/set_positi
+  ```
+ - You can control blinds with *Open*, *Close* and *Stop* commands by using this topic and payloads:
+ ```yaml
+    #define MQTT_CMD_TOPIC              "/Cover/set"
+    #define MQTT_CMD_OPEN               "OPEN"
+    #define MQTT_CMD_CLOSE              "CLOSE"
+    #define MQTT_CMD_STOP               "STOP"
+ ```
+ - State report topic returns the value of actual blinds position from **0%** to **100%**
+ ```yaml
+    #define MQTT_PUBLISH_TOPIC          "/Cover/position"
+ ```
 
 
+<br>
 
+## Home Assistant YAML configuration
+```yaml
+cover:
+  - platform: mqtt
+    name: "Bedroom"
+    device_class: shade
+    command_topic: "/Cover/set"
+    position_topic: "/Cover/position"
+    availability:
+      - topic: "/Cover/availability"
+    set_position_topic: "/Cover/set_position"
+    payload_open: "OPEN"
+    payload_close: "CLOSE"
+    payload_stop: "STOP"
+    position_open: 100
+    position_closed: 0
+    optimistic: false
+    position_template: "{{ value }}"
+```
+
+<br>
 
 ## Dependencies
 Stepper Motor library v.1.61 https://github.com/waspinator/AccelStepper
 
 MQTT library v2.8 https://github.com/knolleary/pubsubclient
+
+<br>
 
 ## Copyright
 
