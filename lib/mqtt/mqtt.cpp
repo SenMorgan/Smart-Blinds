@@ -16,9 +16,9 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 // Returns 1 if successfully reconnected to MQTT server with credentials specified in def.h
-bool reconnect(void)
+bool reconnect(const char *device, const char *id, const char *user)
 {
-    if (mqttClient.connect(MQTT_DEVICE_NAME, MQTT_LOGIN, MQTT_PASSWORD, MQTT_TOPIC, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
+    if (mqttClient.connect(device, id, user, MQTT_TOPIC, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
     {
         mqttClient.subscribe(MQTT_SUBSCRIBE_TOPIC);
         return 1;
@@ -48,7 +48,6 @@ void init_MQTT(const char *server, uint16_t port)
 {
     mqttClient.setServer(server, port);
     mqttClient.setCallback(callback);
-    reconnect();
 }
 
 // Publish incoming data

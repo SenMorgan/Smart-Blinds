@@ -31,11 +31,10 @@ struct
   uint32_t targetPos = 0;
   char hostname[32] = "";
   char ota_pass[32] = "";
+  char mqtt_server[32] = "";
+  char mqtt_port[6] = "";
   char mqtt_login[32] = "";
   char mqtt_pass[32] = "";
-
-  char mqtt_server[40] = "";
-  char mqtt_port[6] = "";
 } params;
 
 // Checking if there is a new message and parsing it
@@ -46,34 +45,47 @@ void mqtt_parse_message(void)
     //  reset flag
     msgFlag = 0;
 
-    // if command topic received
+    // commands topic
     if (msgTopic == MQTT_CMD_TOPIC)
     {
       if (msgString == MQTT_CMD_OPEN)
+      {
         stepper.moveTo(MAX_POSITION);
+        Serial.println("Received command OPEN");
+      }
       else if (msgString == MQTT_CMD_CLOSE)
+      {
         stepper.moveTo(0);
+        Serial.println("Received command CLOSE");
+      }
       else if (msgString == MQTT_CMD_STOP)
+      {
         stepper.stop();
+        Serial.println("Received command STOP");
+      }
       else if (msgString == MQTT_CMD_CORRECT_UP)
       {
         // save actual positon, correct zero point and return to saved position
         uint16_t actualPosition = stepper.currentPosition();
         stepper.setCurrentPosition(stepper.currentPosition() - CORRECTION_OFFSET);
         stepper.moveTo(actualPosition);
+        Serial.println("Received command CORRECT UP");
       }
+
       else if (msgString == MQTT_CMD_CORRECT_DOWN)
       {
         // save actual positon, correct zero point and return to saved position
         uint16_t actualPosition = stepper.currentPosition();
         stepper.setCurrentPosition(stepper.currentPosition() + CORRECTION_OFFSET);
         stepper.moveTo(actualPosition);
+        Serial.println("Received command CORRECT DOWN");
       }
     }
-    // if position topic received
+    // position topic
     else if (msgTopic == MQTT_SET_POSITION_TOPIC)
     {
       stepper.moveTo(map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION));
+      Serial.println("Received go to " + msgString);
     }
   }
 }
@@ -174,49 +186,7 @@ void saveConfigCallback()
 {
   Serial.println("Saving to EEPROM...");
   saveToEEPROMflag = true;
-}
-
-void wifiInfo()
-{
-  WiFi.printDiag(Serial);
-  Serial.println("SAVED: " + (String)WiFiMan.getWiFiIsSaved() ? "YES" : "NO");
-  Serial.println("SSID: " + (String)WiFiMan.getWiFiSSID());
-  Serial.println("PASS: " + (String)WiFiMan.getWiFiPass());
-}
-
-void saveWifiCallback()
-{
-  Serial.println("[CALLBACK] saveCallback fired");
-}
-
-//gets called when WiFiManager enters configuration mode
-void configModeCallback(WiFiManager *myWiFiManager)
-{
-  Serial.println("[CALLBACK] configModeCallback fired");
-  // myWiFiManager->setAPStaticIPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
-  // Serial.println(WiFi.softAPIP());
-  //if you used auto generated SSID, print it
-  // Serial.println(myWiFiManager->getConfigPortalSSID());
-  //
-  // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
-}
-
-void saveParamCallback()
-{
-  Serial.println("[CALLBACK] saveParamCallback fired");
-  // WiFiMan.stopConfigPortal();
-}
-
-void handleRoute()
-{
-  Serial.println("[HTTP] handle route");
-  WiFiMan.server->send(200, "text/plain", "hello from user code");
-}
-
-void bindServerCallback()
-{
-  WiFiMan.server->on("/custom", handleRoute);
-  // WiFiMan.server->on("/info",handleRoute); // you can override wm!
+  WiFiMan.stopConfigPortal();
 }
 
 void setup(void)
@@ -228,13 +198,17 @@ void setup(void)
   Serial.begin(115200);
   Serial.println("\n Starting");
 
-  EEPROM.begin(500);
+  EEPROM.begin(512);
 
   EEPROM.get(0, params);
   stepper.setCurrentPosition(params.targetPos);
-
-  Serial.println("Found: " + String(params.targetPos) + "," +
-                 String(params.hostname) + "," + String(params.mqtt_server));
+  Serial.println("Reading from EEPROM...");
+  Serial.println("Hostname: " + String(params.hostname));
+  Serial.println("OTA password: " + String(params.ota_pass));
+  Serial.println("MQTT server: " + String(params.mqtt_server));
+  Serial.println("MQTT port: " + String(params.mqtt_port));
+  Serial.println("MQTT login: " + String(params.mqtt_login));
+  Serial.println("MQTT password: " + String(params.mqtt_pass));
 
   // setup some parameters
   WiFiManagerParameter custom_device_settings("<p>Device Settings</p>");
@@ -242,15 +216,14 @@ void setup(void)
   WiFiManagerParameter custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
 
   WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>"); // only custom html
-  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 40);
-  //WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 15, "pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'");
+  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 32);
   WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", params.mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_login("mqtt_login", "MQTT Login", params.mqtt_login, 32);
   WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", params.mqtt_pass, 32);
 
   // callbacks
   WiFiMan.setSaveConfigCallback(saveConfigCallback);
- // WiFiMan.setConfigPortalBlocking(false);
+  //WiFiMan.setSaveParamsCallback(saveConfigCallback);
 
   // add all your parameters here
   WiFiMan.addParameter(&custom_device_settings);
@@ -262,30 +235,27 @@ void setup(void)
   WiFiMan.addParameter(&custom_mqtt_login);
   WiFiMan.addParameter(&custom_mqtt_pass);
 
+  //WiFiMan.resetSettings();
+
   // invert theme, dark
   WiFiMan.setDarkMode(true);
+
+  //WiFiMan.setParamsPage(true);
 
   // show scan RSSI as percentage, instead of signal stength graphic
   WiFiMan.setScanDispPerc(true);
 
-  // std::vector<const char *> menu = {"wifi", "wifinoscan", "info", "param", "close", "sep", "erase", "update", "restart", "exit"};
-  // WiFiMan.setMenu(menu); // custom menu, pass vector
-
   WiFiMan.setHostname(params.hostname);
   //sets timeout until configuration portal gets turned off
-  //useful to make it all retry or go to sleep in seconds
-  WiFiMan.setConfigPortalTimeout(120);
-  // connect after portal save toggle
-  WiFiMan.setSaveConnect(false); // do not connect, only save
+  WiFiMan.setConfigPortalTimeout(180);
 
+  //WiFiMan.setConfigPortalBlocking(false);
+  // connect after portal save toggle
+  //WiFiMan.setSaveConnect(false);     // do not connect, only save
   WiFiMan.setBreakAfterConfig(true); // needed to use saveWifiCallback
 
-  if (!WiFiMan.autoConnect("WM_AutoConnectAP", "12345678"))
-  {
+  if (!WiFiMan.autoConnect(params.hostname))
     Serial.println("failed to connect and hit timeout");
-  }
-
-  wifiInfo();
 
   if (saveToEEPROMflag)
   {
@@ -299,17 +269,18 @@ void setup(void)
     //replace values in EEPROM
     EEPROM.put(0, params);
     EEPROM.commit();
-    Serial.println("Saved! Hostname: " + String(params.hostname));
+    Serial.println("Saved!");
   }
 
-  // if false then the configportal will be in non blocking loop
-  // WiFiMan.setConfigPortalBlocking(false);
-  // WiFiMan.autoConnect(HOSTNAME);
-
+  Serial.println("Connecting to MQTT server...");
   init_MQTT(params.mqtt_server, atoi(params.mqtt_port));
+
+  if (reconnect(params.hostname, params.mqtt_login, params.mqtt_pass))
+    Serial.println("Done!");
+
   ArduinoOTA.setHostname(params.hostname);
   ArduinoOTA.begin();
-  ArduinoOTA.setPassword(OTA_PASS);
+  ArduinoOTA.setPassword(params.ota_pass);
   ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
                         { digitalWrite(STATUS_LED, !digitalRead(STATUS_LED)); });
   ArduinoOTA.onEnd([]()
@@ -338,9 +309,6 @@ void loop(void)
   // for testing
 
   ArduinoOTA.handle();
-  // if stepper isn't moving than we can process configportal
-  if (!stepper.distanceToGo())
-    WiFiMan.process();
 
   uint32_t timeNow = millis();
   bool connectedToServer = mqttLoop();
@@ -362,7 +330,7 @@ void loop(void)
     // we can try to reconnect only if stepper isn't moving
     else if (!stepper.distanceToGo())
     {
-      reconnect();
+      reconnect(params.hostname, params.mqtt_login, params.mqtt_pass);
       // increasing timer period during reconnection process
       publishTimer = timeNow + PUBLISH_STEP_LONG;
     }
