@@ -20,7 +20,7 @@ extern String msgString;
 extern bool msgFlag;
 
 void init_MQTT(const char *server, uint16_t port);
-bool reconnect(void);
+bool reconnect(const char *device, const char *id, const char *user);
 bool mqttLoop(void);
 void publish_data(uint32_t timeNow, uint32_t data);
 
