@@ -228,21 +228,21 @@ void setup(void)
   Serial.begin(115200);
   Serial.println("\n Starting");
 
-  EEPROM.begin(128);
+  EEPROM.begin(500);
 
   EEPROM.get(0, params);
   stepper.setCurrentPosition(params.targetPos);
 
   Serial.println("Found: " + String(params.targetPos) + "," +
-                 String(params.mqtt_server) + "," + String(params.mqtt_port));
+                 String(params.hostname) + "," + String(params.mqtt_server));
 
   // setup some parameters
   WiFiManagerParameter custom_device_settings("<p>Device Settings</p>");
   WiFiManagerParameter custom_hostname("hostname", "Device Hostname", params.hostname, 32);
-  WiFiManagerParameter custom_custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
+  WiFiManagerParameter custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
 
   WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>"); // only custom html
-  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", "", 40);
+  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 40);
   //WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 15, "pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'");
   WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", params.mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_login("mqtt_login", "MQTT Login", params.mqtt_login, 32);
@@ -255,7 +255,7 @@ void setup(void)
   // add all your parameters here
   WiFiMan.addParameter(&custom_device_settings);
   WiFiMan.addParameter(&custom_hostname);
-  WiFiMan.addParameter(&custom_custom_ota_pass);
+  WiFiMan.addParameter(&custom_ota_pass);
   WiFiMan.addParameter(&custom_mqtt_settings);
   WiFiMan.addParameter(&custom_mqtt_server);
   WiFiMan.addParameter(&custom_mqtt_port);
@@ -280,8 +280,6 @@ void setup(void)
 
   WiFiMan.setBreakAfterConfig(true); // needed to use saveWifiCallback
 
-  wifiInfo();
-
   if (!WiFiMan.autoConnect("WM_AutoConnectAP", "12345678"))
   {
     Serial.println("failed to connect and hit timeout");
@@ -292,7 +290,7 @@ void setup(void)
   if (saveToEEPROMflag)
   {
     strcpy(params.hostname, custom_hostname.getValue());
-    strcpy(params.ota_pass, custom_custom_ota_pass.getValue());
+    strcpy(params.ota_pass, custom_ota_pass.getValue());
     strcpy(params.mqtt_server, custom_mqtt_server.getValue());
     strcpy(params.mqtt_port, custom_mqtt_port.getValue());
     strcpy(params.mqtt_login, custom_mqtt_login.getValue());
@@ -301,7 +299,7 @@ void setup(void)
     //replace values in EEPROM
     EEPROM.put(0, params);
     EEPROM.commit();
-    Serial.println("Saved!");
+    Serial.println("Saved! Hostname: " + String(params.hostname));
   }
 
   // if false then the configportal will be in non blocking loop
