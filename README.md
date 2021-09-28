@@ -95,7 +95,9 @@ cover:
 <br>
 
 ## Dependencies
-Stepper Motor library v.1.61 https://github.com/waspinator/AccelStepper
+WiFiManager library v2.0.4-beta https://github.com/tzapu/WiFiManager
+
+Stepper Motor library v1.61 https://github.com/waspinator/AccelStepper
 
 MQTT library v2.8 https://github.com/knolleary/pubsubclient
 

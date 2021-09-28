@@ -24,6 +24,19 @@ WiFiManager WiFiMan;
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
 uint32_t publishTimer = 0;
+bool saveToEEPROMflag = 0;
+
+struct
+{
+  uint32_t targetPos = 0;
+  char hostname[32] = "";
+  char ota_pass[32] = "";
+  char mqtt_login[32] = "";
+  char mqtt_pass[32] = "";
+
+  char mqtt_server[40] = "";
+  char mqtt_port[6] = "";
+} params;
 
 // Checking if there is a new message and parsing it
 void mqtt_parse_message(void)
@@ -147,7 +160,8 @@ void stepper_prog(void)
     else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
     {
       stepper.disableOutputs();
-      EEPROM.put(0, stepper.currentPosition());
+      params.targetPos = stepper.currentPosition();
+      EEPROM.put(0, params);
       EEPROM.commit();
       stepperMode = 0;
     }
@@ -155,23 +169,147 @@ void stepper_prog(void)
   }
 }
 
+//callback notifying us of the need to save config
+void saveConfigCallback()
+{
+  Serial.println("Saving to EEPROM...");
+  saveToEEPROMflag = true;
+}
+
+void wifiInfo()
+{
+  WiFi.printDiag(Serial);
+  Serial.println("SAVED: " + (String)WiFiMan.getWiFiIsSaved() ? "YES" : "NO");
+  Serial.println("SSID: " + (String)WiFiMan.getWiFiSSID());
+  Serial.println("PASS: " + (String)WiFiMan.getWiFiPass());
+}
+
+void saveWifiCallback()
+{
+  Serial.println("[CALLBACK] saveCallback fired");
+}
+
+//gets called when WiFiManager enters configuration mode
+void configModeCallback(WiFiManager *myWiFiManager)
+{
+  Serial.println("[CALLBACK] configModeCallback fired");
+  // myWiFiManager->setAPStaticIPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
+  // Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  // Serial.println(myWiFiManager->getConfigPortalSSID());
+  //
+  // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+}
+
+void saveParamCallback()
+{
+  Serial.println("[CALLBACK] saveParamCallback fired");
+  // WiFiMan.stopConfigPortal();
+}
+
+void handleRoute()
+{
+  Serial.println("[HTTP] handle route");
+  WiFiMan.server->send(200, "text/plain", "hello from user code");
+}
+
+void bindServerCallback()
+{
+  WiFiMan.server->on("/custom", handleRoute);
+  // WiFiMan.server->on("/info",handleRoute); // you can override wm!
+}
+
 void setup(void)
 {
   pinMode(STATUS_LED, OUTPUT);
   digitalWrite(STATUS_LED, LOW);
 
-  // read saved stepper position
-  uint32_t targetPos = 0;
-  EEPROM.begin(4);
-  EEPROM.get(0, targetPos);
-  stepper.setCurrentPosition(targetPos);
+  WiFi.mode(WIFI_STA);
+  Serial.begin(115200);
+  Serial.println("\n Starting");
+
+  EEPROM.begin(128);
+
+  EEPROM.get(0, params);
+  stepper.setCurrentPosition(params.targetPos);
+
+  Serial.println("Found: " + String(params.targetPos) + "," +
+                 String(params.mqtt_server) + "," + String(params.mqtt_port));
+
+  // setup some parameters
+  WiFiManagerParameter custom_device_settings("<p>Device Settings</p>");
+  WiFiManagerParameter custom_hostname("hostname", "Device Hostname", params.hostname, 32);
+  WiFiManagerParameter custom_custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
+
+  WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>"); // only custom html
+  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", "", 40);
+  //WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 15, "pattern='\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}'");
+  WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", params.mqtt_port, 6);
+  WiFiManagerParameter custom_mqtt_login("mqtt_login", "MQTT Login", params.mqtt_login, 32);
+  WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", params.mqtt_pass, 32);
+
+  // callbacks
+  WiFiMan.setSaveConfigCallback(saveConfigCallback);
+ // WiFiMan.setConfigPortalBlocking(false);
+
+  // add all your parameters here
+  WiFiMan.addParameter(&custom_device_settings);
+  WiFiMan.addParameter(&custom_hostname);
+  WiFiMan.addParameter(&custom_custom_ota_pass);
+  WiFiMan.addParameter(&custom_mqtt_settings);
+  WiFiMan.addParameter(&custom_mqtt_server);
+  WiFiMan.addParameter(&custom_mqtt_port);
+  WiFiMan.addParameter(&custom_mqtt_login);
+  WiFiMan.addParameter(&custom_mqtt_pass);
+
+  // invert theme, dark
+  WiFiMan.setDarkMode(true);
+
+  // show scan RSSI as percentage, instead of signal stength graphic
+  WiFiMan.setScanDispPerc(true);
+
+  // std::vector<const char *> menu = {"wifi", "wifinoscan", "info", "param", "close", "sep", "erase", "update", "restart", "exit"};
+  // WiFiMan.setMenu(menu); // custom menu, pass vector
+
+  WiFiMan.setHostname(params.hostname);
+  //sets timeout until configuration portal gets turned off
+  //useful to make it all retry or go to sleep in seconds
+  WiFiMan.setConfigPortalTimeout(120);
+  // connect after portal save toggle
+  WiFiMan.setSaveConnect(false); // do not connect, only save
+
+  WiFiMan.setBreakAfterConfig(true); // needed to use saveWifiCallback
+
+  wifiInfo();
+
+  if (!WiFiMan.autoConnect("WM_AutoConnectAP", "12345678"))
+  {
+    Serial.println("failed to connect and hit timeout");
+  }
+
+  wifiInfo();
+
+  if (saveToEEPROMflag)
+  {
+    strcpy(params.hostname, custom_hostname.getValue());
+    strcpy(params.ota_pass, custom_custom_ota_pass.getValue());
+    strcpy(params.mqtt_server, custom_mqtt_server.getValue());
+    strcpy(params.mqtt_port, custom_mqtt_port.getValue());
+    strcpy(params.mqtt_login, custom_mqtt_login.getValue());
+    strcpy(params.mqtt_pass, custom_mqtt_pass.getValue());
+
+    //replace values in EEPROM
+    EEPROM.put(0, params);
+    EEPROM.commit();
+    Serial.println("Saved!");
+  }
 
   // if false then the configportal will be in non blocking loop
-  WiFiMan.setConfigPortalBlocking(false);
-  WiFiMan.autoConnect(HOSTNAME);
+  // WiFiMan.setConfigPortalBlocking(false);
+  // WiFiMan.autoConnect(HOSTNAME);
 
-  init_MQTT(MQTT_SERVER, MQTT_PORT);
-  ArduinoOTA.setHostname(HOSTNAME);
+  init_MQTT(params.mqtt_server, atoi(params.mqtt_port));
+  ArduinoOTA.setHostname(params.hostname);
   ArduinoOTA.begin();
   ArduinoOTA.setPassword(OTA_PASS);
   ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
@@ -192,6 +330,15 @@ void setup(void)
 
 void loop(void)
 {
+  // for testing
+  static uint32_t tim = 0;
+  if (millis() > tim)
+  {
+    tim = millis() + 200;
+    digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
+  }
+  // for testing
+
   ArduinoOTA.handle();
   // if stepper isn't moving than we can process configportal
   if (!stepper.distanceToGo())
