@@ -9,13 +9,10 @@
 #ifndef DEF_H
 #define DEF_H
 
-#define HOSTNAME                    "Smart_Blinds"
+#define DEFAULT_HOSTNAME            "Smart_Blinds"
 
 // MQTT definitions
-#define MQTT_SERVER                 "192.168.1.100"
-#define MQTT_PORT                   1883
-#define MQTT_DEVICE_NAME            "Blinds"
-#define MQTT_TOPIC                  "/test/availability"
+#define MQTT_WILL_TOPIC             "/test/availability"
 #define MQTT_QOS                    1
 #define MQTT_RETAIN                 1
 #define MQTT_WILL_MESSAGE           "offline"

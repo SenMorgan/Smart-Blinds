@@ -10,7 +10,6 @@
  ***************************************************************/
 
 #include "def.h"
-#include "mqtt.h"
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
@@ -19,13 +18,22 @@
 #include <EEPROM.h>
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
+#include <PubSubClient.h>
 
 WiFiManager WiFiMan;
 AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
 uint32_t publishTimer = 0;
 bool saveToEEPROMflag = 0;
 
+String msgTopic = "";
+String msgString = "";
+bool msgFlag = 0;
+
+// EEPROM memory structure
 struct
 {
   uint32_t targetPos = 0;
@@ -36,6 +44,53 @@ struct
   char mqtt_login[32] = "";
   char mqtt_pass[32] = "";
 } params;
+
+// Returns 1 if successfully reconnected to MQTT server with credentials specified in def.h
+bool reconnect(const char *device, const char *id, const char *user)
+{
+    if (mqttClient.connect(device, id, user, MQTT_WILL_TOPIC, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
+    {
+        mqttClient.subscribe(MQTT_SUBSCRIBE_TOPIC);
+        return 1;
+    }
+    return 0;
+}
+
+// Sending keepAlive message
+// Returns 1 if connected to MQTT server. Need to be called in main loop
+bool mqttLoop(void)
+{
+    return mqttClient.loop();
+}
+
+// Saving all received data
+void callback(String topic, byte *payload, uint16_t length)
+{
+    msgFlag = 1;        // set flag if new message came
+    msgTopic = topic;
+    msgString = "";
+    for (uint16_t i = 0; i < length; i++)
+        msgString += (char)payload[i];
+}
+
+// Initializing MQTT connection
+void init_MQTT(const char *server, uint16_t port)
+{
+    mqttClient.setServer(server, port);
+    mqttClient.setCallback(callback);
+}
+
+// Publish incoming data
+void publish_data(uint32_t timeNow, uint32_t data)
+{
+    static char buff[20];
+
+    sprintf(buff, "%d", data);
+    mqttClient.publish(MQTT_PUBLISH_TOPIC, buff, true);
+    mqttClient.publish(MQTT_AVAILABILITY_TOPIC, MQTT_AVAILABILITY_MESSAGE);
+    sprintf(buff, "%d sec", timeNow / 1000);
+    mqttClient.publish(MQTT_UPTIME_TOPIC, buff);
+}
 
 // Checking if there is a new message and parsing it
 void mqtt_parse_message(void)
@@ -223,7 +278,6 @@ void setup(void)
 
   // callbacks
   WiFiMan.setSaveConfigCallback(saveConfigCallback);
-  //WiFiMan.setSaveParamsCallback(saveConfigCallback);
 
   // add all your parameters here
   WiFiMan.addParameter(&custom_device_settings);
@@ -235,24 +289,19 @@ void setup(void)
   WiFiMan.addParameter(&custom_mqtt_login);
   WiFiMan.addParameter(&custom_mqtt_pass);
 
-  //WiFiMan.resetSettings();
+  // WiFiMan.resetSettings();
 
   // invert theme, dark
   WiFiMan.setDarkMode(true);
-
-  //WiFiMan.setParamsPage(true);
 
   // show scan RSSI as percentage, instead of signal stength graphic
   WiFiMan.setScanDispPerc(true);
 
   WiFiMan.setHostname(params.hostname);
-  //sets timeout until configuration portal gets turned off
+  // sets timeout until configuration portal gets turned off
   WiFiMan.setConfigPortalTimeout(180);
-
-  //WiFiMan.setConfigPortalBlocking(false);
-  // connect after portal save toggle
-  //WiFiMan.setSaveConnect(false);     // do not connect, only save
-  WiFiMan.setBreakAfterConfig(true); // needed to use saveWifiCallback
+  // needed to use saveWifiCallback
+  WiFiMan.setBreakAfterConfig(true);
 
   if (!WiFiMan.autoConnect(params.hostname))
     Serial.println("failed to connect and hit timeout");
