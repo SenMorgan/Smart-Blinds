@@ -10,22 +10,27 @@
 #define DEF_H
 
 #define DEFAULT_HOSTNAME            "Smart_Blinds"
+// how many times should reset button be pressed to call setting erase
+#define RESET_BUTTON_CYCLES         3
+// maximum delay between pressing reset button to call setting erase
+#define RESET_BUTTON_DELAY          500
 
 // MQTT definitions
-#define MQTT_WILL_TOPIC             "/test/availability"
+#define DEFAULT_TOPIC               "/blinds"
+#define MQTT_WILL_TOPIC             "/blinds/availability"
 #define MQTT_QOS                    1
 #define MQTT_RETAIN                 1
 #define MQTT_WILL_MESSAGE           "offline"
-#define MQTT_SUBSCRIBE_TOPIC        "/test/#"
-#define MQTT_PUBLISH_TOPIC          "/test/position"
-#define MQTT_AVAILABILITY_TOPIC     "/test/availability"
+#define MQTT_SUBSCRIBE_TOPIC        "/blinds/#"
+#define MQTT_PUBLISH_TOPIC          "/blinds/position"
+#define MQTT_AVAILABILITY_TOPIC     "/blinds/availability"
 #define MQTT_AVAILABILITY_MESSAGE   "online"
-#define MQTT_UPTIME_TOPIC           "/test/uptime"
-#define MQTT_CMD_TOPIC              "/test/set"
+#define MQTT_UPTIME_TOPIC           "/blinds/uptime"
+#define MQTT_CMD_TOPIC              "/blinds/set"
 #define MQTT_CMD_OPEN               "OPEN"
 #define MQTT_CMD_CLOSE              "CLOSE"
 #define MQTT_CMD_STOP               "STOP"
-#define MQTT_SET_POSITION_TOPIC     "/test/set_position"
+#define MQTT_SET_POSITION_TOPIC     "/blinds/set_position"
 #define MQTT_CMD_CORRECT_UP         "CORRECT_UP"
 #define MQTT_CMD_CORRECT_DOWN       "CORRECT_DOWN"
 
