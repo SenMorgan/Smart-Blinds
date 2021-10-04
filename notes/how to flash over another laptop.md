@@ -7,4 +7,6 @@ Connect to laptop via SSH
 Install esptool by typing sudo apt install esptool
 Find out IP address by typing ip addr
 Open *.bin file folder
-For start flashing type esptool -cd nodemcu -cf firmware.bin
+ll /sys/class/tty/ttyUSB*
+minicom
+For start flashing type sudo esptool -cd nodemcu -cf firmware.bin
