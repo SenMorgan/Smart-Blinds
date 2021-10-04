@@ -44,12 +44,23 @@ struct
   uint32_t resetCounterComp = 0;
 } params;
 
+// headers to be appended with topics
+char willTopic[128] = "";
+char subscribeTopic[128] = "";
+char cmdTopic[128] = "";
+char setPosTopic[128] = "";
+char publishTopic[128] = "";
+char availabililtyTopic[128] = "";
+char uptimeTopic[128] = "";
+
 // Returns 1 if successfully reconnected to MQTT server
-bool reconnect(const char *device, const char *id, const char *user)
+bool reconnect()
 {
-  if (mqttClient.connect(device, id, user, MQTT_WILL_TOPIC, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
+  // connecting to MQTT server
+  if (mqttClient.connect(params.hostname, params.mqtt_login, params.mqtt_pass,
+                         willTopic, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
   {
-    mqttClient.subscribe(MQTT_SUBSCRIBE_TOPIC);
+    mqttClient.subscribe(subscribeTopic);
     Serial.println("Successfully connected to " +
                    String(params.mqtt_server) + ":" + String(params.mqtt_port));
     return 1;
@@ -66,7 +77,7 @@ void callback(String topic, byte *payload, uint16_t length)
     msgString += (char)payload[i];
 
   // commands topic
-  if (topic == MQTT_CMD_TOPIC)
+  if (topic == cmdTopic)
   {
     if (msgString == MQTT_CMD_OPEN)
     {
@@ -102,7 +113,7 @@ void callback(String topic, byte *payload, uint16_t length)
     }
   }
   // position topic
-  else if (topic == MQTT_SET_POSITION_TOPIC)
+  else if (topic == setPosTopic)
   {
     stepper.moveTo(map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION));
     Serial.println("Received go to " + msgString);
@@ -113,13 +124,15 @@ void callback(String topic, byte *payload, uint16_t length)
 void publish_data()
 {
   static char buff[20];
+
   // publish current position to server in 0~100% range
   sprintf(buff, "%ld", map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100));
-  mqttClient.publish(MQTT_PUBLISH_TOPIC, buff, true);
+  mqttClient.publish(publishTopic, buff, true);
 
-  mqttClient.publish(MQTT_AVAILABILITY_TOPIC, MQTT_AVAILABILITY_MESSAGE);
+  mqttClient.publish(availabililtyTopic, MQTT_AVAILABILITY_MESSAGE);
   sprintf(buff, "%ld sec", millis() / 1000);
-  mqttClient.publish(MQTT_UPTIME_TOPIC, buff);
+  mqttClient.publish(uptimeTopic, buff);
+  Serial.println("Data was sended, time from start: " + String(buff));
 }
 
 // Reading buttons states
@@ -303,7 +316,7 @@ void setup(void)
   WiFiManagerParameter custom_hostname("hostname", "Device Hostname", params.hostname, 32);
   WiFiManagerParameter custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
 
-  WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>"); // only custom html
+  WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>");
   WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 32);
   WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", params.mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_topic("mqtt_topic", "MQTT Topic", params.mqtt_topic, 32);
@@ -355,10 +368,27 @@ void setup(void)
     Serial.println("Saved!");
   }
 
+  // appending topics
+  strcpy(willTopic, params.mqtt_topic);
+  strcpy(subscribeTopic, params.mqtt_topic);
+  strcpy(cmdTopic, params.mqtt_topic);
+  strcpy(setPosTopic, params.mqtt_topic);
+  strcpy(publishTopic, params.mqtt_topic);
+  strcpy(availabililtyTopic, params.mqtt_topic);
+  strcpy(uptimeTopic, params.mqtt_topic);
+
+  strcat(willTopic, MQTT_WILL_TOPIC);
+  strcat(subscribeTopic, MQTT_SUBSCRIBE_TOPIC);
+  strcat(cmdTopic, MQTT_CMD_TOPIC);
+  strcat(setPosTopic, MQTT_SET_POSITION_TOPIC);
+  strcat(publishTopic, MQTT_PUBLISH_TOPIC);
+  strcat(availabililtyTopic, MQTT_AVAILABILITY_TOPIC);
+  strcat(uptimeTopic, MQTT_UPTIME_TOPIC);
+
   mqttClient.setServer(params.mqtt_server, atoi(params.mqtt_port));
   mqttClient.setCallback(callback);
   Serial.println("Connecting to MQTT server...");
-  reconnect(params.hostname, params.mqtt_login, params.mqtt_pass);
+  reconnect();
 
   // Arduino OTA initialization
   ArduinoOTA.setHostname(params.hostname);
@@ -399,8 +429,8 @@ void loop(void)
     // if we are connected to MQTT server
     if (connectedToServer)
     {
-      digitalWrite(STATUS_LED, 0);  // blink buildin LED
-      publish_data();                 // publish data
+      digitalWrite(STATUS_LED, 0); // blink buildin LED
+      publish_data();              // publish data
       digitalWrite(STATUS_LED, 1); // switch off buildin LED
 
       publishTimer = // save next publish time depending on actual stepper state
@@ -409,10 +439,7 @@ void loop(void)
     // we can try to reconnect only if stepper isn't moving
     else if (!stepper.distanceToGo())
     {
- //     clear_setting_memory();
- //     ESP.restart();
-
-      reconnect(params.hostname, params.mqtt_login, params.mqtt_pass);
+      reconnect();
       // increasing timer period during reconnection process
       publishTimer = timeNow + PUBLISH_STEP_LONG;
     }
