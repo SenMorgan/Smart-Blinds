@@ -16,21 +16,21 @@
 #define RESET_BUTTON_DELAY          500
 
 // MQTT definitions
-#define DEFAULT_TOPIC               "/blinds"
-#define MQTT_WILL_TOPIC             "/blinds/availability"
+#define DEFAULT_TOPIC               "/blinds/"
+#define MQTT_WILL_TOPIC             "availability"
 #define MQTT_QOS                    1
 #define MQTT_RETAIN                 1
 #define MQTT_WILL_MESSAGE           "offline"
-#define MQTT_SUBSCRIBE_TOPIC        "/blinds/#"
-#define MQTT_PUBLISH_TOPIC          "/blinds/position"
-#define MQTT_AVAILABILITY_TOPIC     "/blinds/availability"
+#define MQTT_SUBSCRIBE_TOPIC        "#"
+#define MQTT_PUBLISH_TOPIC          "position"
+#define MQTT_AVAILABILITY_TOPIC     "availability"
 #define MQTT_AVAILABILITY_MESSAGE   "online"
-#define MQTT_UPTIME_TOPIC           "/blinds/uptime"
-#define MQTT_CMD_TOPIC              "/blinds/set"
+#define MQTT_UPTIME_TOPIC           "uptime"
+#define MQTT_CMD_TOPIC              "set"
 #define MQTT_CMD_OPEN               "OPEN"
 #define MQTT_CMD_CLOSE              "CLOSE"
 #define MQTT_CMD_STOP               "STOP"
-#define MQTT_SET_POSITION_TOPIC     "/blinds/set_position"
+#define MQTT_SET_POSITION_TOPIC     "set_position"
 #define MQTT_CMD_CORRECT_UP         "CORRECT_UP"
 #define MQTT_CMD_CORRECT_DOWN       "CORRECT_DOWN"
 
@@ -51,15 +51,15 @@
 #define STEPPER_ACCELERATION        1800.0
 
 // delay in ms between reporting states to MQTT server in idle mode
-#define PUBLISH_STEP_LONG   30000
+#define PUBLISH_STEP_LONG           30000
 // delay in ms between reporting states to MQTT server in moving mode
-#define PUBLISH_STEP_SHORT  500
+#define PUBLISH_STEP_SHORT          500
 
 // stepper motor driver pins
 #define PIN_STEP        D1
 #define PIN_DIR         D2
 #define PIN_ENABLE      D3
-
+// other IOs
 #define STATUS_LED      D4
 #define BUTTON_1        D6
 #define BUTTON_2        D7
