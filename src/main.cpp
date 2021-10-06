@@ -64,12 +64,12 @@ struct
 {
   uint32_t savedPos = 0;
   char hostname[32] = "";
-  char ota_pass[32] = "";
-  char mqtt_server[32] = "";
-  char mqtt_port[6] = "";
-  char mqtt_topic[32] = "";
-  char mqtt_login[32] = "";
-  char mqtt_pass[32] = "";
+  char otaPass[32] = "";
+  char mqttServer[32] = "";
+  char mqttPort[6] = "";
+  char mqttTopic[32] = "";
+  char mqttLogin[32] = "";
+  char mqttPass[32] = "";
   uint32_t resetCounter = 0;
   uint32_t resetCounterComp = 0;
   long maxPosition = 0;
@@ -90,12 +90,12 @@ char uptimeTopic[128] = "";
 bool reconnect()
 {
   // connecting to MQTT server
-  if (mqttClient.connect(params.hostname, params.mqtt_login, params.mqtt_pass,
+  if (mqttClient.connect(params.hostname, params.mqttLogin, params.mqttPass,
                          willTopic, MQTT_QOS, MQTT_RETAIN, MQTT_WILL_MESSAGE))
   {
     mqttClient.subscribe(subscribeTopic);
     Serial.println("Successfully connected to " +
-                   String(params.mqtt_server) + ":" + String(params.mqtt_port));
+                   String(params.mqttServer) + ":" + String(params.mqttPort));
     return 1;
   }
   Serial.println("Can't connect to MQTT server...");
@@ -308,7 +308,7 @@ void setup(void)
     params.resetCounterComp = params.resetCounter;
     // set and save default hostname
     strcpy(params.hostname, DEFAULT_HOSTNAME);
-    strcpy(params.mqtt_topic, DEFAULT_TOPIC);
+    strcpy(params.mqttTopic, DEFAULT_TOPIC);
     params.maxPosition = DEFAULT_MAX_POSITION;
     params.maxSpeed = DEFAULT_STEPPER_MAX_SPEED;
     params.acceleration = DEFAULT_STEPPER_ACCELERATION;
@@ -336,14 +336,15 @@ void setup(void)
 
   // set actual stepper position as saved one
   stepper.setCurrentPosition(params.savedPos);
+  // print saved data
   Serial.println("Reading from EEPROM...");
   Serial.println("Hostname: " + String(params.hostname));
-  Serial.println("OTA password: " + String(params.ota_pass));
-  Serial.println("MQTT server: " + String(params.mqtt_server));
-  Serial.println("MQTT port: " + String(params.mqtt_port));
-  Serial.println("MQTT topic: " + String(params.mqtt_topic));
-  Serial.println("MQTT login: " + String(params.mqtt_login));
-  Serial.println("MQTT password: " + String(params.mqtt_pass));
+  Serial.println("OTA password: " + String(params.otaPass));
+  Serial.println("MQTT server: " + String(params.mqttServer));
+  Serial.println("MQTT port: " + String(params.mqttPort));
+  Serial.println("MQTT topic: " + String(params.mqttTopic));
+  Serial.println("MQTT login: " + String(params.mqttLogin));
+  Serial.println("MQTT password: " + String(params.mqttPass));
   Serial.println("Resets count: " + String(params.resetCounter));
   Serial.println("Resets count compare: " + String(params.resetCounterComp));
   Serial.println("Maximum position: " + String(params.maxPosition));
@@ -353,20 +354,19 @@ void setup(void)
   // setup some web configuration parameters
   WiFiManagerParameter custom_device_settings("<p>Device Settings</p>");
   WiFiManagerParameter custom_hostname("hostname", "Device Hostname", params.hostname, 32);
-  WiFiManagerParameter custom_ota_pass("ota_pass", "OTA Password", params.ota_pass, 32);
+  WiFiManagerParameter custom_ota_pass("otaPass", "OTA Password", params.otaPass, 32);
 
   WiFiManagerParameter custom_mqtt_settings("<p>MQTT Settings</p>");
-  WiFiManagerParameter custom_mqtt_server("mqtt_server", "MQTT Server", params.mqtt_server, 32);
-  WiFiManagerParameter custom_mqtt_port("mqtt_port", "MQTT Port", params.mqtt_port, 6);
-  WiFiManagerParameter custom_mqtt_topic("mqtt_topic", "MQTT Topic", params.mqtt_topic, 32);
-  WiFiManagerParameter custom_mqtt_login("mqtt_login", "MQTT Login", params.mqtt_login, 32);
-  WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", params.mqtt_pass, 32);
+  WiFiManagerParameter custom_mqtt_server("mqttServer", "MQTT Server", params.mqttServer, 32);
+  WiFiManagerParameter custom_mqtt_port("mqttPort", "MQTT Port", params.mqttPort, 6);
+  WiFiManagerParameter custom_mqtt_topic("mqttTopic", "MQTT Topic", params.mqttTopic, 32);
+  WiFiManagerParameter custom_mqtt_login("mqttLogin", "MQTT Login", params.mqttLogin, 32);
+  WiFiManagerParameter custom_mqtt_pass("mqttPass", "MQTT Password", params.mqttPass, 32);
 
   WiFiManagerParameter custom_stepper_settings("<p>Stepper Settings</p>");
   IntParameter custom_max_position("max_poss", "Maximum Stepper Position", params.maxPosition);
   FloatParameter custom_max_speed("max_speed", "Maximum Stepper Speed", params.maxSpeed);
   FloatParameter custom_acceleration("acceleration", "Stepper Acceleration", params.acceleration);
-
 
   // callbacks
   WiFiMan.setSaveConfigCallback(saveConfigCallback);
@@ -401,16 +401,16 @@ void setup(void)
   {
     Serial.println("failed to connect and hit timeout");
   }
-  // if new data was saved from config portal - parse them and save to EEPROM
+  // if new params in config portal was chenged - save them to EEPROM
   if (saveToEEPROMflag)
   {
     strcpy(params.hostname, custom_hostname.getValue());
-    strcpy(params.ota_pass, custom_ota_pass.getValue());
-    strcpy(params.mqtt_server, custom_mqtt_server.getValue());
-    strcpy(params.mqtt_port, custom_mqtt_port.getValue());
-    strcpy(params.mqtt_topic, custom_mqtt_topic.getValue());
-    strcpy(params.mqtt_login, custom_mqtt_login.getValue());
-    strcpy(params.mqtt_pass, custom_mqtt_pass.getValue());
+    strcpy(params.otaPass, custom_ota_pass.getValue());
+    strcpy(params.mqttServer, custom_mqtt_server.getValue());
+    strcpy(params.mqttPort, custom_mqtt_port.getValue());
+    strcpy(params.mqttTopic, custom_mqtt_topic.getValue());
+    strcpy(params.mqttLogin, custom_mqtt_login.getValue());
+    strcpy(params.mqttPass, custom_mqtt_pass.getValue());
 
     params.maxPosition = custom_max_position.getValue();
     params.maxSpeed = custom_max_speed.getValue();
@@ -422,13 +422,13 @@ void setup(void)
   }
 
   // appending topics
-  strcpy(willTopic, params.mqtt_topic);
-  strcpy(subscribeTopic, params.mqtt_topic);
-  strcpy(cmdTopic, params.mqtt_topic);
-  strcpy(setPosTopic, params.mqtt_topic);
-  strcpy(publishTopic, params.mqtt_topic);
-  strcpy(availabililtyTopic, params.mqtt_topic);
-  strcpy(uptimeTopic, params.mqtt_topic);
+  strcpy(willTopic, params.mqttTopic);
+  strcpy(subscribeTopic, params.mqttTopic);
+  strcpy(cmdTopic, params.mqttTopic);
+  strcpy(setPosTopic, params.mqttTopic);
+  strcpy(publishTopic, params.mqttTopic);
+  strcpy(availabililtyTopic, params.mqttTopic);
+  strcpy(uptimeTopic, params.mqttTopic);
 
   strcat(willTopic, MQTT_WILL_TOPIC);
   strcat(subscribeTopic, MQTT_SUBSCRIBE_TOPIC);
@@ -438,21 +438,22 @@ void setup(void)
   strcat(availabililtyTopic, MQTT_AVAILABILITY_TOPIC);
   strcat(uptimeTopic, MQTT_UPTIME_TOPIC);
 
-  mqttClient.setServer(params.mqtt_server, atoi(params.mqtt_port));
+// MQTT initializing
+  mqttClient.setServer(params.mqttServer, atoi(params.mqttPort));
   mqttClient.setCallback(callback);
   Serial.println("Connecting to MQTT server...");
   reconnect();
 
-  // Arduino OTA initialization
+  // Arduino OTA initializing
   ArduinoOTA.setHostname(params.hostname);
-  ArduinoOTA.setPassword(params.ota_pass);
+  ArduinoOTA.setPassword(params.otaPass);
   ArduinoOTA.begin();
   ArduinoOTA.onProgress([](uint16_t progress, uint16_t total)
                         { digitalWrite(STATUS_LED, !digitalRead(STATUS_LED)); });
   ArduinoOTA.onEnd([]()
                    { digitalWrite(STATUS_LED, 1); });
 
-  // stepper driver initialization
+  // stepper driver initializing
   stepper.setEnablePin(PIN_ENABLE);
   stepper.setPinsInverted(false, false, false, false, true);
   stepper.setMaxSpeed(params.maxSpeed);
@@ -490,10 +491,10 @@ void loop(void)
           timeNow + ((stepper.distanceToGo() != 0) ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
     // we can try to reconnect only if stepper isn't moving
-    else if (!stepper.distanceToGo() && millis() - stepperLastTriggered > RECONNECT_DELAY)
+    else if (!stepper.distanceToGo() && timeNow - stepperLastTriggered > RECONNECT_DELAY)
     {
       reconnect();
-      // increasing timer period during reconnection process
+      // increasing timer period during reconnecting
       publishTimer = timeNow + PUBLISH_STEP_LONG;
     }
   }
