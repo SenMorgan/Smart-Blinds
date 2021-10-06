@@ -96,18 +96,18 @@ void callback(String topic, byte *payload, uint16_t length)
     }
     else if (msgString == MQTT_CMD_CORRECT_UP)
     {
-      // save actual positon, correct zero point and return to saved position
-      uint16_t actualPosition = stepper.currentPosition();
-      stepper.setCurrentPosition(stepper.currentPosition() - CORRECTION_OFFSET);
+      // save actual positon, correct driver's zero point and return to saved position
+      long actualPosition = stepper.currentPosition();
+      stepper.setCurrentPosition(actualPosition - CORRECTION_OFFSET);
       stepper.moveTo(actualPosition);
       Serial.println("Received command CORRECT UP");
     }
 
     else if (msgString == MQTT_CMD_CORRECT_DOWN)
     {
-      // save actual positon, correct zero point and return to saved position
-      uint16_t actualPosition = stepper.currentPosition();
-      stepper.setCurrentPosition(stepper.currentPosition() + CORRECTION_OFFSET);
+      // save actual positon, correct driver's zero point and return to saved position
+      long actualPosition = stepper.currentPosition();
+      stepper.setCurrentPosition(actualPosition + CORRECTION_OFFSET);
       stepper.moveTo(actualPosition);
       Serial.println("Received command CORRECT DOWN");
     }
