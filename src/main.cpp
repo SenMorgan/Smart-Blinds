@@ -26,7 +26,7 @@ AccelStepper stepper(1, PIN_STEP, PIN_DIR);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-uint32_t publishTimer = 0;
+uint32_t publishTimer = 0, stepperLastTriggered = 0;
 bool saveToEEPROMflag = 0;
 
 class FloatParameter : public WiFiManagerParameter
@@ -219,7 +219,6 @@ void buttons_read(void)
 // Controlling stepper modes and saving position to EEPROM
 void stepper_prog(void)
 {
-  static uint32_t stoppedTimeStamp = 0;
   static uint8_t stepperMode = 0;
 
   switch (stepperMode)
@@ -238,7 +237,7 @@ void stepper_prog(void)
     // making stepper to move and checking if the target position reached
     if (!stepper.run())
     {
-      stoppedTimeStamp = millis();
+      stepperLastTriggered = millis();
       stepperMode++;
     }
     break;
@@ -247,13 +246,14 @@ void stepper_prog(void)
     if (stepper.distanceToGo() != 0)
       stepperMode = 1;
     // when timer ended - stop stepper holding and save new position
-    else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
+    else if (millis() - stepperLastTriggered > AFTER_STOP_DELAY)
     {
       stepper.disableOutputs();
       params.savedPos = stepper.currentPosition();
       EEPROM.put(0, params);
       EEPROM.commit();
       stepperMode = 0;
+      stepperLastTriggered = millis();
     }
     break;
   }
@@ -490,7 +490,7 @@ void loop(void)
           timeNow + ((stepper.distanceToGo() != 0) ? PUBLISH_STEP_SHORT : PUBLISH_STEP_LONG);
     }
     // we can try to reconnect only if stepper isn't moving
-    else if (!stepper.distanceToGo())
+    else if (!stepper.distanceToGo() && millis() - stepperLastTriggered > RECONNECT_DELAY)
     {
       reconnect();
       // increasing timer period during reconnection process

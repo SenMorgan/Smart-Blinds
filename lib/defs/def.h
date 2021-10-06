@@ -49,11 +49,13 @@
 #define DEFAULT_STEPPER_MAX_SPEED       2000.0
 // acceleration/deceleration rate for stepper motor
 #define DEFAULT_STEPPER_ACCELERATION    1800.0
-
+// reconnecting to MQTT takes some time, so we need this value to delay
+// reconnecting when making operations
+#define RECONNECT_DELAY                 30000
 // delay in ms between reporting states to MQTT server in idle mode
-#define PUBLISH_STEP_LONG           30000
+#define PUBLISH_STEP_LONG               30000
 // delay in ms between reporting states to MQTT server in moving mode
-#define PUBLISH_STEP_SHORT          500
+#define PUBLISH_STEP_SHORT              500
 
 // stepper motor driver pins
 #define PIN_STEP        D1
