@@ -35,20 +35,20 @@
 #define MQTT_CMD_CORRECT_DOWN       "CORRECT_DOWN"
 
 // timer period in ms to check buttons states
-#define READ_BUTTONS_STEP           50
+#define READ_BUTTONS_STEP               50
 // period in ms after toggling buttons in which changing direction is detected
 // needs if you have a button with only 2-positions
-#define CHANGE_DIRRECTION_DELAY     1000
+#define CHANGE_DIRRECTION_DELAY         1000
 // delay in ms to hold motor after the end of moving to prevent drifting
-#define AFTER_STOP_DELAY            2000
+#define AFTER_STOP_DELAY                2000
 // maximum steps value (calculated manually)
-#define MAX_POSITION                104000
+#define DEFAULT_MAX_POSITION            104000
 // value of steps to be moved when using correction
-#define CORRECTION_OFFSET           1000
+#define CORRECTION_OFFSET               1000
 // maximum permitted speed for stepper motor
-#define STEPPER_MAX_SPEED           2000.0
+#define DEFAULT_STEPPER_MAX_SPEED       2000.0
 // acceleration/deceleration rate for stepper motor
-#define STEPPER_ACCELERATION        1800.0
+#define DEFAULT_STEPPER_ACCELERATION    1800.0
 
 // delay in ms between reporting states to MQTT server in idle mode
 #define PUBLISH_STEP_LONG           30000
