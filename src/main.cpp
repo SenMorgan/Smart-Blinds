@@ -29,10 +29,40 @@ PubSubClient mqttClient(espClient);
 uint32_t publishTimer = 0;
 bool saveToEEPROMflag = 0;
 
+class FloatParameter : public WiFiManagerParameter
+{
+public:
+  FloatParameter(const char *id, const char *placeholder, float value, const uint8_t length = 10)
+      : WiFiManagerParameter("")
+  {
+    init(id, placeholder, String(value).c_str(), length, "", WFM_LABEL_BEFORE);
+  }
+
+  float getValue()
+  {
+    return String(WiFiManagerParameter::getValue()).toFloat();
+  }
+};
+
+class IntParameter : public WiFiManagerParameter
+{
+public:
+  IntParameter(const char *id, const char *placeholder, long value, const uint8_t length = 10)
+      : WiFiManagerParameter("")
+  {
+    init(id, placeholder, String(value).c_str(), length, "", WFM_LABEL_BEFORE);
+  }
+
+  long getValue()
+  {
+    return String(WiFiManagerParameter::getValue()).toInt();
+  }
+};
+
 // EEPROM memory structure
 struct
 {
-  uint32_t targetPos = 0;
+  uint32_t savedPos = 0;
   char hostname[32] = "";
   char ota_pass[32] = "";
   char mqtt_server[32] = "";
@@ -42,6 +72,9 @@ struct
   char mqtt_pass[32] = "";
   uint32_t resetCounter = 0;
   uint32_t resetCounterComp = 0;
+  long maxPosition = 0;
+  float maxSpeed = 0;
+  float acceleration = 0;
 } params;
 
 // headers to be appended with topics
@@ -81,7 +114,7 @@ void callback(String topic, byte *payload, uint16_t length)
   {
     if (msgString == MQTT_CMD_OPEN)
     {
-      stepper.moveTo(MAX_POSITION);
+      stepper.moveTo(params.maxPosition);
       Serial.println("Received command OPEN");
     }
     else if (msgString == MQTT_CMD_CLOSE)
@@ -115,7 +148,7 @@ void callback(String topic, byte *payload, uint16_t length)
   // position topic
   else if (topic == setPosTopic)
   {
-    stepper.moveTo(map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, MAX_POSITION));
+    stepper.moveTo(map(constrain(msgString.toInt(), 0, 100), 0, 100, 0, params.maxPosition));
     Serial.println("Received go to " + msgString);
   }
 }
@@ -126,7 +159,7 @@ void publish_data()
   static char buff[20];
 
   // publish current position to server in 0~100% range
-  sprintf(buff, "%ld", map(stepper.currentPosition(), 0, MAX_POSITION, 0, 100));
+  sprintf(buff, "%ld", map(stepper.currentPosition(), 0, params.maxPosition, 0, 100));
   mqttClient.publish(publishTopic, buff, true);
 
   mqttClient.publish(availabililtyTopic, MQTT_AVAILABILITY_MESSAGE);
@@ -155,7 +188,7 @@ void buttons_read(void)
       if (!stepper.distanceToGo() || millis() - buttonPressedTimeStamp <= CHANGE_DIRRECTION_DELAY)
       {
         buttonPressedTimeStamp = millis();
-        stepper.moveTo(MAX_POSITION);
+        stepper.moveTo(params.maxPosition);
       }
       else
         stepper.stop();
@@ -217,7 +250,7 @@ void stepper_prog(void)
     else if (millis() - stoppedTimeStamp > AFTER_STOP_DELAY)
     {
       stepper.disableOutputs();
-      params.targetPos = stepper.currentPosition();
+      params.savedPos = stepper.currentPosition();
       EEPROM.put(0, params);
       EEPROM.commit();
       stepperMode = 0;
@@ -276,6 +309,9 @@ void setup(void)
     // set and save default hostname
     strcpy(params.hostname, DEFAULT_HOSTNAME);
     strcpy(params.mqtt_topic, DEFAULT_TOPIC);
+    params.maxPosition = DEFAULT_MAX_POSITION;
+    params.maxSpeed = DEFAULT_STEPPER_MAX_SPEED;
+    params.acceleration = DEFAULT_STEPPER_ACCELERATION;
     EEPROM.put(0, params);
     EEPROM.commit();
     delay(100);
@@ -299,7 +335,7 @@ void setup(void)
   EEPROM.commit();
 
   // set actual stepper position as saved one
-  stepper.setCurrentPosition(params.targetPos);
+  stepper.setCurrentPosition(params.savedPos);
   Serial.println("Reading from EEPROM...");
   Serial.println("Hostname: " + String(params.hostname));
   Serial.println("OTA password: " + String(params.ota_pass));
@@ -310,6 +346,9 @@ void setup(void)
   Serial.println("MQTT password: " + String(params.mqtt_pass));
   Serial.println("Resets count: " + String(params.resetCounter));
   Serial.println("Resets count compare: " + String(params.resetCounterComp));
+  Serial.println("Maximum position: " + String(params.maxPosition));
+  Serial.println("Maximum speed: " + String(params.maxSpeed));
+  Serial.println("Acceleration: " + String(params.acceleration));
 
   // setup some web configuration parameters
   WiFiManagerParameter custom_device_settings("<p>Device Settings</p>");
@@ -322,6 +361,12 @@ void setup(void)
   WiFiManagerParameter custom_mqtt_topic("mqtt_topic", "MQTT Topic", params.mqtt_topic, 32);
   WiFiManagerParameter custom_mqtt_login("mqtt_login", "MQTT Login", params.mqtt_login, 32);
   WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT Password", params.mqtt_pass, 32);
+
+  WiFiManagerParameter custom_stepper_settings("<p>Stepper Settings</p>");
+  IntParameter custom_max_position("max_poss", "Maximum Stepper Position", params.maxPosition);
+  FloatParameter custom_max_speed("max_speed", "Maximum Stepper Speed", params.maxSpeed);
+  FloatParameter custom_acceleration("acceleration", "Stepper Acceleration", params.acceleration);
+
 
   // callbacks
   WiFiMan.setSaveConfigCallback(saveConfigCallback);
@@ -336,6 +381,10 @@ void setup(void)
   WiFiMan.addParameter(&custom_mqtt_topic);
   WiFiMan.addParameter(&custom_mqtt_login);
   WiFiMan.addParameter(&custom_mqtt_pass);
+  WiFiMan.addParameter(&custom_stepper_settings);
+  WiFiMan.addParameter(&custom_max_position);
+  WiFiMan.addParameter(&custom_max_speed);
+  WiFiMan.addParameter(&custom_acceleration);
 
   // invert theme, dark
   WiFiMan.setDarkMode(true);
@@ -362,6 +411,10 @@ void setup(void)
     strcpy(params.mqtt_topic, custom_mqtt_topic.getValue());
     strcpy(params.mqtt_login, custom_mqtt_login.getValue());
     strcpy(params.mqtt_pass, custom_mqtt_pass.getValue());
+
+    params.maxPosition = custom_max_position.getValue();
+    params.maxSpeed = custom_max_speed.getValue();
+    params.acceleration = custom_acceleration.getValue();
 
     EEPROM.put(0, params);
     EEPROM.commit();
@@ -402,8 +455,8 @@ void setup(void)
   // stepper driver initialization
   stepper.setEnablePin(PIN_ENABLE);
   stepper.setPinsInverted(false, false, false, false, true);
-  stepper.setMaxSpeed(STEPPER_MAX_SPEED);
-  stepper.setAcceleration(STEPPER_ACCELERATION);
+  stepper.setMaxSpeed(params.maxSpeed);
+  stepper.setAcceleration(params.acceleration);
 
   // make some sound and blink to know that blinds are ready to work
   stepper.enableOutputs();
