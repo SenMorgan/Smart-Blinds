@@ -22,7 +22,7 @@ The project was created on 07.08.2019 in Arduino IDE and rebuild in PlatformIO 0
 
 ## Wiring Schematic
 
-<img src="https://media3.giphy.com/media/TLeLKUdIc1tvAxb7ab/source.gif" width="400" height="250" />
+![](Smart-Blinds-Breadboard-Scheme.png)
 
 <br>
 
