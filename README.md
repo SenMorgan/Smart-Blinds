@@ -28,7 +28,7 @@ The project was created on 07.08.2019 in Arduino IDE and rebuild in PlatformIO 0
 
 ## Getting Started 
 
-- Upload last relase to your ESPx module.
+- Upload latest release to your ESPx module.
 - When your ESP starts up, it sets it up in Station mode and tries to connect to a previously saved Access Point.
 - If this is unsuccessful (or no previous network saved) it moves the ESP into Access Point mode and spins up a DNS and WebServer.
 - Using any WiFi enabled device with a browser (computer, phone, tablet) connect to the newly created Access Point.
@@ -79,6 +79,12 @@ cover:
     optimistic: false
     position_template: "{{ value }}"
 ```
+
+<br>
+
+## Notes
+
+If you want to rebuild this project in VS Code with PlatformIO, you need to manualy download [WiFiManager library v2.0.4-beta](https://github.com/tzapu/WiFiManager) and put it in `lib/WiFiManager/`.
 
 <br>
 
