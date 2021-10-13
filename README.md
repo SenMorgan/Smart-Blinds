@@ -28,43 +28,31 @@ The project was created on 07.08.2019 in Arduino IDE and rebuild in PlatformIO 0
 
 ## Getting Started 
 
-- Open this project in [PlatformIO](https://platformio.org/)
-- Change settings as you wish in ``/lib/defs/def.h``
-- Also you need to create ``/lib/defs/secrets.h`` file and paste in there:
-
-```cpp
-#ifndef SECRETS_h
-#define SECRETS_h
-
-/* change these variables as your own */
-#define MQTT_LOGIN     "your_login"
-#define MQTT_PASSWORD  "your_password"
-#define OTA_PASS       "your_OTA_password"
-/* stop changing here */
-
-#endif /* SECRETS_h */
-```
-- :warning:Don't forget to write your own credentials and setting in both files!:warning:
-- Build this project and upload it to your ESPx module.
-- After succeful flash please follow [this WiFiManager guide](https://github.com/tzapu/WiFiManager#how-it-works).
-- When the ESP has connected to WiFi, you can start sending commands by MQTT
+- Upload last relase to your ESPx module.
+- When your ESP starts up, it sets it up in Station mode and tries to connect to a previously saved Access Point.
+- If this is unsuccessful (or no previous network saved) it moves the ESP into Access Point mode and spins up a DNS and WebServer.
+- Using any WiFi enabled device with a browser (computer, phone, tablet) connect to the newly created Access Point.
+- Because of the Captive Portal and the DNS server you will either get a 'Join to network' type of popup or get any domain you try to access redirected to the configuration portal. If not, type *192.168.4.1* in your browser.
+- Choose one of the access points scanned and enter password.
+- Set up your MQTT and stepper motor setting.
+- Click save.
+- ESP now will try to connect. If successful, it relinquishes control back to your app. If not, reconnect to AP and reconfigure.
+- When the ESP has connected to WiFi and MQTT, you can start sending commands by MQTT.
 
 <br>
 
 ## MQTT:
- - State report is provided every ```PUBLISH_STEP_LONG``` (default **30**) seconds in idle and ```PUBLISH_STEP_SHORT``` (default **0.5**) seconds when moving.
- - Command topic to set blinds position (**0~100%**) is 
-  ```yaml
-    #define MQTT_SET_POSITION_TOPIC     "/blinds/set_positi
-  ```
- - You can control blinds with *Open*, *Close* and *Stop* commands by using this topic and payloads:
+ - MQTT and all other default settings you can find in `lib/defs/def.h`
+ - State report is provided every `PUBLISH_STEP_LONG` (default **30**) seconds in idle and `PUBLISH_STEP_SHORT` (default **0.5**) seconds when moving.
+ - Default command topic to set blinds position (using **0~100%** values) is:
+  `"/blinds/set_position"`
+ - You can control blinds with *Open*, *Close* and *Stop* commands by using defult topic `"/blinds/set"` and payloads:
  ```yaml
-    #define MQTT_CMD_TOPIC              "/blinds/set"
     #define MQTT_CMD_OPEN               "OPEN"
     #define MQTT_CMD_CLOSE              "CLOSE"
     #define MQTT_CMD_STOP               "STOP"
  ```
- - State report topic returns the value of actual blinds position from **0%** to **100%**
+ - Default state report topic returns the value of actual blinds position from **0%** to **100%**
  ```yaml
     #define MQTT_PUBLISH_TOPIC          "/blinds/position"
  ```
